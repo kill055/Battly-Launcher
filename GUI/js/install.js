@@ -1,0 +1,216 @@
+let isDownloading = false;
+
+let installPage;
+let installBtn;
+let installText;
+let installPlayerName;
+let installCustomCheck;
+let installCustomOptions;
+let installPathInput;
+
+export function setupInstallation() {
+  installPage = document.getElementById('install-page');
+  installBtn = document.getElementById('installBtn');
+  installText = document.getElementById('installText');
+  installPlayerName = document.getElementById('installPlayerName');
+  installCustomCheck = document.getElementById('installCustomCheck');
+  installCustomOptions = document.getElementById('installCustomOptions');
+  installPathInput = document.getElementById('installPath');
+  
+  if (installCustomCheck && installCustomOptions) {
+    installCustomCheck.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        installCustomOptions.classList.add('show');
+      } else {
+        installCustomOptions.classList.remove('show');
+      }
+    });
+  }
+  
+  if (installPlayerName) {
+    installPlayerName.addEventListener('change', savePlayerName);
+  }
+
+  if (window.electronAPI && window.electronAPI.onProgressUpdate) {
+    window.electronAPI.onProgressUpdate((data) => {
+      if (!isDownloading) return;
+      if (window.LauncherUI) {
+        window.LauncherUI.updateProgress(data);
+      }
+    });
+  }
+}
+
+export async function installGame() {
+  if (isDownloading || (installBtn && installBtn.disabled)) return;
+  
+  const playerName = (installPlayerName ? installPlayerName.value.trim() : '') || 'Player';
+  const installPath = installPathInput ? installPathInput.value.trim() : '';
+  
+  if (window.LauncherUI) window.LauncherUI.showProgress();
+  isDownloading = true;
+  if (installBtn) {
+    installBtn.disabled = true;
+    installText.textContent = window.i18n ? window.i18n.t('install.installing') : 'INSTALLING...';
+  }
+  
+  try {
+    if (window.electronAPI && window.electronAPI.installGame) {
+      const result = await window.electronAPI.installGame(playerName, '', installPath);
+      
+      if (result.success) {
+        const successMsg = window.i18n ? window.i18n.t('progress.installationComplete') : 'Installation completed successfully!';
+        if (window.LauncherUI) {
+          window.LauncherUI.updateProgress({ message: successMsg });
+          setTimeout(() => {
+            window.LauncherUI.hideProgress();
+            window.LauncherUI.showLauncherOrInstall(true);
+            const playerNameInput = document.getElementById('playerName');
+            if (playerNameInput) playerNameInput.value = playerName;
+            resetInstallButton();
+          }, 2000);
+        }
+      } else {
+        throw new Error(result.error || 'Installation failed');
+      }
+    } else {
+      simulateInstallation(playerName);
+    }
+  } catch (error) {
+    const errorMsg = window.i18n ? window.i18n.t('progress.installationFailed').replace('{error}', error.message) : `Installation failed: ${error.message}`;
+    if (window.LauncherUI) {
+      window.LauncherUI.updateProgress({ message: errorMsg });
+      setTimeout(() => {
+        window.LauncherUI.hideProgress();
+        resetInstallButton();
+      }, 3000);
+    }
+  }
+}
+
+function simulateInstallation(playerName) {
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 3;
+    if (progress > 100) progress = 100;
+    
+    const installingMsg = window.i18n ? window.i18n.t('progress.installingGameFiles') : 'Installing game files...';
+    const completeMsg = window.i18n ? window.i18n.t('progress.installComplete') : 'Installation complete!';
+    
+    if (window.LauncherUI) {
+      window.LauncherUI.updateProgress({
+        percent: progress,
+        message: progress < 100 ? installingMsg : completeMsg,
+        speed: 1024 * 1024 * (5 + Math.random() * 10),
+        downloaded: progress * 1024 * 1024 * 20,
+        total: 1024 * 1024 * 2000
+      });
+    }
+    
+    if (progress >= 100) {
+      clearInterval(interval);
+      const successMsg = window.i18n ? window.i18n.t('progress.installationComplete') : 'Installation completed successfully!';
+      setTimeout(() => {
+        if (window.LauncherUI) {
+          window.LauncherUI.updateProgress({ message: successMsg });
+          setTimeout(() => {
+            window.LauncherUI.hideProgress();
+            window.LauncherUI.showLauncherOrInstall(true);
+            const playerNameInput = document.getElementById('playerName');
+            if (playerNameInput) playerNameInput.value = playerName;
+            resetInstallButton();
+          }, 2000);
+        }
+      }, 1000);
+    }
+  }, 200);
+}
+
+function resetInstallButton() {
+  isDownloading = false;
+  if (installBtn) {
+    installBtn.disabled = false;
+    installText.textContent = 'INSTALL HYTALE';
+  }
+}
+
+export async function browseInstallPath() {
+  try {
+    if (window.electronAPI && window.electronAPI.selectInstallPath) {
+      const result = await window.electronAPI.selectInstallPath();
+      if (result && installPathInput) {
+        installPathInput.value = result;
+      }
+    }
+  } catch (error) {
+    console.error('Error browsing install path:', error);
+  }
+}
+
+async function savePlayerName() {
+  try {
+    if (window.electronAPI && window.electronAPI.saveSettings) {
+      const playerName = (installPlayerName ? installPlayerName.value.trim() : '') || 'Player';
+      await window.electronAPI.saveSettings({ playerName });
+    }
+  } catch (error) {
+    console.error('Error saving player name:', error);
+  }
+}
+
+export async function checkGameStatusAndShowInterface() {
+  try {
+    if (window.electronAPI && window.electronAPI.isGameInstalled) {
+      const installed = await window.electronAPI.isGameInstalled();
+      if (window.LauncherUI) {
+        window.LauncherUI.showLauncherOrInstall(installed);
+      }
+      if (installed) {
+        await loadPlayerSettings();
+      }
+    } else {
+      if (window.LauncherUI) {
+        window.LauncherUI.showLauncherOrInstall(false);
+      }
+    }
+  } catch (error) {
+    console.error('Error checking game status:', error);
+    if (window.LauncherUI) {
+      window.LauncherUI.showLauncherOrInstall(false);
+    }
+  }
+}
+
+async function loadPlayerSettings() {
+  try {
+    if (window.electronAPI && window.electronAPI.loadSettings) {
+      const settings = await window.electronAPI.loadSettings();
+      if (settings) {
+        const playerNameInput = document.getElementById('playerName');
+        const javaPathInput = document.getElementById('javaPath');
+        if (settings.playerName && playerNameInput) {
+          playerNameInput.value = settings.playerName;
+        }
+        if (settings.javaPath && javaPathInput) {
+          javaPathInput.value = settings.javaPath;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error loading settings:', error);
+  }
+}
+
+window.installGame = installGame;
+window.browseInstallPath = browseInstallPath;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  setupInstallation();
+  await checkGameStatusAndShowInterface();
+});
+window.browseInstallPath = browseInstallPath;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  setupInstallation();
+  await checkGameStatusAndShowInterface();
+});
