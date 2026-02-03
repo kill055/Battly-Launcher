@@ -1,5 +1,5 @@
 const strings = {
-  "salutate": "¡Hola!",
+  "salutate": "Ciao!",
   "checking_connection": "Verifica della connessione a Internet",
   "no_connection": "Impossibile connettersi a Internet.<br>Entrare in modalità offline",
   "starting_battly": "Avvio di Battly",
