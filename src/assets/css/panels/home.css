@@ -1,0 +1,559 @@
+@import "https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css";
+
+.swal-overlay {
+  font-family: "Poppins";
+}
+.errores::-webkit-scrollbar {
+  width: var(--scroll-size, 15px);
+}
+
+.errores::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb, linear-gradient(45deg, #00aeff, #a68eff));
+  border-radius: var(--scroll-radius, 3px);
+}
+
+.errores::-webkit-scrollbar-track {
+  background: var(--scroll-track, rgb(255 255 255 / 10%));
+}
+
+.modal-card-body::-webkit-scrollbar {
+  width: var(--scroll-size, 10px);
+}
+
+.modal-card-body::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb, linear-gradient(45deg, #00aeff, #a68eff));
+}
+
+.modal-card-body::-webkit-scrollbar-track {
+  background: var(--scroll-track, rgb(255 255 255 / 10%));
+}
+
+.ad {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  border-radius: 5px;
+  opacity: 1;
+  margin-bottom: -20px;
+  background-size: cover;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.radio-button-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  /* Agregamos esta propiedad para que los elementos se salten de línea */
+  margin-left: -5px;
+  margin-top: 5px;
+}
+
+.radio-button {
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+}
+
+.radio-button__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.radio-button__label {
+  display: inline-block;
+  padding-left: 25px;
+  position: relative;
+  font-size: 16px;
+  color: #f2f2f2;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.radio-button__custom {
+  position: absolute;
+  top: 0;
+  left: 4;
+  width: 18px;
+  height: 18px;
+  border-radius: 40%;
+  border: 2px solid #555;
+  transition: all 0.3s ease;
+}
+
+.radio-button__input:checked + .radio-button__label .radio-button__custom {
+  background-color: #4c8bf5;
+  border-color: transparent;
+  transform: scale(0.8);
+  box-shadow: 0 0 20px #4c8bf580;
+}
+
+.radio-button__input:checked + .radio-button__label {
+  color: #4c8bf5;
+}
+
+.radio-button__label:hover .radio-button__custom {
+  transform: scale(1.1);
+  border-color: #4c8bf5;
+  box-shadow: 0 0 20px #4c8bf580;
+}
+
+.radio-button__input-with-margin {
+  margin-left: -5px;
+  margin-top: 5px;
+}
+
+.progress-bar.battly-s3gsqm {
+  max-width: 100%;
+  width: 100%;
+  height: 15px;
+  border-radius: 5px;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+.progress-fill.battly-s3gsqm {
+  height: 100%;
+  border-radius: 5px;
+  overflow: hidden;
+  transition: 600ms ease width, 150ms ease background-color;
+  transform-origin: left;
+  background-color: var(--accent);
+}
+
+.progress-bar.error .progress-fill {
+  background-color: var(--danger);
+}
+
+.progress-bar.success .progress-fill {
+  background-color: #3ac172;
+}
+
+.progress-bar.warning .progress-fill {
+  background-color: #f7b924;
+}
+
+.progress-bar.info .progress-fill {
+  background-color: #4c8bf5;
+}
+
+@keyframes moveRightLeft {
+  0% {
+    width: 20%;
+    display: block;
+    transform: translateX(-40%);
+  }
+
+  50% {
+    display: none;
+    width: 90%;
+    transform: translateX(100%);
+  }
+
+  100% {
+    width: 20%;
+    transform: translateX(-40%);
+  }
+}
+
+.animated-fill {
+  animation: moveRightLeft 2s infinite;
+}
+
+.modal-card,
+.modal-card-head,
+.modal-card-body,
+.modal-card-foot {
+  background-color: #212121;
+}
+
+.context-menu {
+  display: none;
+  position: absolute;
+  background-color: #212121;
+  border: 1px solid #ccc;
+  color: #fff;
+  padding: 5px 0;
+  border-radius: 5px;
+}
+
+.context-menu ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+.context-menu ul li {
+  padding: 5px 20px;
+}
+
+.context-menu li:hover {
+  background-color: #373737;
+  color: #fff;
+}
+
+button:hover .button-span {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+button .button-span {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  opacity: 0;
+  visibility: hidden;
+  margin-bottom: 1em;
+  padding: 1em;
+  background-color: #000;
+  border-radius: 10px;
+  font-size: 0.6em;
+  line-height: 1.6;
+  text-align: left;
+  white-space: nowrap;
+  transform: translate(-50%, 1em);
+  transition: all 0.15s ease-in-out;
+}
+
+button .button-span::before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border: 0.5em solid transparent;
+  border-top-color: #000;
+  transform: translate(-50%, 0);
+}
+
+/* play button */
+button:hover .play-button-span {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+button .play-button-span {
+  position: absolute;
+  left: 20%;
+  bottom: 100%;
+  opacity: 0;
+  visibility: hidden;
+  margin-bottom: 1em;
+  padding: 1em;
+  background-color: #000;
+  border-radius: 10px;
+  font-size: 0.6em;
+  line-height: 1.6;
+  text-align: left;
+  white-space: nowrap;
+  transform: translate(-50%, 1em);
+  transition: all 0.15s ease-in-out;
+}
+
+button .play-button-span::before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 65%;
+  width: 0;
+  height: 0;
+  border: 0.5em solid transparent;
+  border-top-color: #000;
+  transform: translate(-50%, 0);
+}
+
+/* settings button */
+button:hover .settings-button-span {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-10%, 0);
+}
+
+button .settings-button-span {
+  position: absolute;
+  left: 20%;
+  bottom: 100%;
+  opacity: 0;
+  visibility: hidden;
+  margin-bottom: 1em;
+  padding: 1em;
+  background-color: #000;
+  border-radius: 10px;
+  font-size: 0.6em;
+  line-height: 1.6;
+  text-align: left;
+  white-space: nowrap;
+  transform: translate(-10%, 1em);
+  transition: all 0.15s ease-in-out;
+}
+
+button .settings-button-span::before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 15%;
+  width: 0;
+  height: 0;
+  border: 0.5em solid transparent;
+  border-top-color: #000;
+  transform: translate(-40%, 0);
+}
+
+.wrapper-contextmenu {
+  visibility: hidden;
+  position: absolute;
+  width: 160px;
+  border-radius: 10px;
+  background: #212121;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.1);
+}
+.wrapper-contextmenu .menu-contextmenu {
+  padding: 10px 5px;
+}
+.content-contextmenu .item-contextmenu {
+  list-style: none;
+  font-size: 15px;
+  height: 30px;
+  display: flex;
+  width: 100%;
+  cursor: pointer;
+  align-items: center;
+  border-radius: 5px;
+  margin-bottom: 2px;
+  padding: 0 5px 0 10px;
+}
+.content-contextmenu .item-contextmenu:hover {
+  background: #373737;
+}
+.content-contextmenu .item-contextmenu span {
+  margin-left: 8px;
+  font-size: 19px;
+  color: #fff;
+}
+
+.content-contextmenu .item-contextmenu i {
+  color: #fff;
+}
+.content-contextmenu .setting-contextmenu {
+  display: flex;
+  margin-top: -5px;
+  padding: 5px 12px;
+  border-top: 1px solid #ccc;
+}
+.content-contextmenu .share-menu {
+  position: relative;
+  justify-content: space-between;
+}
+.share-menu .share-menu-contextmenu {
+  position: absolute;
+  background: #212121;
+  width: 150px;
+  right: -150px;
+  top: -35px;
+  padding: 10px 5px;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 10px;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.08);
+  transition: 0.2s ease;
+}
+.share-menu:hover .share-menu-contextmenu {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* que todo tenga 10px de radio */
+button,
+input,
+textarea,
+select,
+a,
+div {
+  border-radius: 10px !important;
+}
+
+.card-content,
+.card-footer-item {
+  border-radius: 0px !important;
+}
+.ten-radius {
+  border-radius: 10px !important;
+}
+
+.new-panel-bottom {
+  --space-sm: clamp(1rem, calc(1rem + 0vw), 1rem);
+  --row-gap: var(--space-sm);
+  --column-gap: var(--space-sm);
+  gap: var(--row-gap) var(--column-gap);
+
+  & p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  li,
+  button {
+    color: #fff;
+    line-height: 1.5;
+    font-family: "Poppins";
+  }
+
+  & h1 {
+    font-size: 2rem;
+    font-weight: 600;
+  }
+
+  & h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+  }
+
+  & h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  & h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  & h5 {
+    font-size: 1rem;
+  }
+
+  & h6 {
+    font-size: 1rem;
+  }
+
+  & p {
+    font-size: 0.9rem;
+  }
+
+  & .changelog__metadata {
+    color: #fff;
+  }
+
+  & .changelog__metadata time {
+    color: #fff;
+  }
+
+  & ul {
+    margin-top: 0;
+    list-style-type: disc;
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  & li {
+    box-sizing: border-box;
+  }
+
+  & img {
+    border-radius: 10px;
+  }
+
+  & code {
+    background-color: #212121 !important;
+    font-size: 0.875em !important;
+    font-weight: 400 !important;
+    padding: 3px !important;
+    border: 1px solid #888888 !important;
+    border-radius: 5px !important;
+    color: #fff !important;
+    font-weight: bold !important;
+  }
+}
+
+/* Hide the default checkbox */
+.container-optifine input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.container-optifine {
+  display: flex;
+  position: relative;
+  cursor: pointer;
+  font-size: 1.2rem;
+  user-select: none;
+  align-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-left: 5px;
+}
+
+/* Create a custom checkbox */
+.checkmark {
+  --clr: #3e8ed0;
+  position: relative;
+  top: 0;
+  left: 0;
+  height: 1.1em;
+  width: 1.1em;
+  background-color: #ccc;
+  border-radius: 50%;
+  transition: 300ms;
+}
+
+/* When the checkbox is checked, add a blue background */
+.container-optifine input:checked ~ .checkmark {
+  background-color: var(--clr);
+  border-radius: 0.5rem;
+  animation: pulse1 500ms ease-in-out;
+}
+
+/* Create the checkmark/indicator (hidden when not checked) */
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+/* Show the checkmark when checked */
+.container-optifine input:checked ~ .checkmark:after {
+  display: block;
+}
+
+/* Style the checkmark/indicator */
+.container-optifine .checkmark:after {
+  left: 0.45em;
+  top: 0.25em;
+  width: 0.25em;
+  height: 0.5em;
+  border: solid #e0e0e2;
+  border-width: 0 0.15em 0.15em 0;
+  transform: rotate(45deg);
+}
+
+@keyframes pulse1 {
+  0% {
+    box-shadow: 0 0 0 #3e8ed0;
+    rotate: 20deg;
+  }
+
+  50% {
+    rotate: -20deg;
+  }
+
+  75% {
+    box-shadow: 0 0 0 10px #227cc5;
+  }
+
+  100% {
+    box-shadow: 0 0 0 13px #3e8ed0;
+    rotate: 0;
+  }
+}

@@ -1,0 +1,52 @@
+<div id="battly_mods">
+  <link href="./assets/css/panels/mods.css" rel="stylesheet" />
+
+  <div class="home-container">
+    <span class="home-text">
+      <p style="color: #fff; font-weight: 800;">Battly <span style="color: #3e8ed0" id="battlymodstext">Mods</span></p>
+      <br />
+    </span>
+    <div class="home-features" id="home-features-mods">
+      <div class="home-container1" id="mods_container">
+      </div>
+    </div>
+  </div>
+  <nav class="pagination is-centered" role="navigation" id="navbar-mods" aria-label="pagination" style="
+        padding: 0 45px;
+        position: fixed;
+        bottom: 65;
+        width: 100%;
+        z-index: 100;
+    ">
+    <a class="pagination-previous button is-info" id="anterior_btn_mods" style="opacity: 0;">Anterior</a>
+    <a class="pagination-next button is-info" id="siguiente_btn_mods" style="opacity: 0;">Siguiente</a>
+    <ul class="pagination-list" id="pagination-mods">
+    </ul>
+  </nav>
+  <div class="bottom_bar_mods">
+    <div style="
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+  ">
+      <input class="buscar-mods input" id="input_buscar_mods" type="text" placeholder="Buscar mods...">
+      <div class="select is-info" id="select_mods" style="height: 40px;">
+        <select style="height: 40px;" id="select-type-of-search-mods">
+          <option value="mod">Mods</option>
+          <option value="resourcepack">Resourcepacks</option>
+          <option value="shader">Shaders</option>
+        </select>
+      </div>
+    </div>
+    <div style="
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+  ">
+      <button class="button is-info" id="button_instalar_modpack" style="background-color: rgb(62, 142, 208);">Instalar
+        ModPack</button>
+      <button class="button is-info" id="button_ver_mods">Mis Mods</button>
+      <button class="boton-volver button is-info" id="volver">Volver</button>
+    </div>
+  </div>
+</div>
