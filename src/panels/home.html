@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <script src="https://kit.fontawesome.com/bdec180db7.js" crossorigin="anonymous"></script>
+</head>
+<body style="background-image: url(https://battlylauncher.com/assets/img/1.jpg);">
+    <div class="home-content">
+        <audio id="audioPlayer" controls autoplay style="display: none;"></audio>
+    <div class="body-home">
+        <div class="news-list">
+            <h1 id="news-battly" style="font-weight: 800; font-size: 40px; color: #fff; text-align: center;"></h1>
+        </div>
+        <div class="info-list">
+            <h1 id="status-battly" style="font-weight: 800; font-size: 40px; color: #fff"></h1>
+            <div class="info-item">
+                <div class="server">
+                    <img class="server-img" src="assets/images/icon.png"/>
+                    <div class="server-text">
+                        <div class="name" id="Battly_API">Battly API</div>
+                        <div class="desc" id="Battly_API_Desc"><span class="red">Apagado</span> - 0ms</div>
+                    </div>
+                    <div class="etat-text">
+                        <div class="text"></div>
+                        <div class="online off" id="Battly_API_Estado"></div>
+                    </div>
+                </div>
+                <br>
+                <div class="server">
+                    <img class="server-img" src="assets/images/icon.png"/>
+                    <div class="server-text">
+                        <div class="name" id="Battly_WEB">Battly WEB</div>
+                        <div class="desc" id="Battly_WEB_Desc"><span class="red">Apagado</span> - 0ms</div>
+                    </div>
+                    <div class="etat-text">
+                        <div class="text"></div>
+                        <div class="online off" id="Battly_WEB_Estado"></div>
+                    </div>
+                </div>
+                <br>
+                <div class="server1">
+                    <img class="server-img" src="assets/images/icon.png"/>
+                    <div class="server-text">
+                        <div class="name1" id="Miembros_Online">Usuarios Online</div>
+                        <div class="desc"><span class="green"></span></div>
+                    </div>
+                    <div class="etat-text">
+                        <div class="online on"></div>
+                    </div>
+                </div>
+                <br>
+                <div class="server">
+                    <img class="music-img" id="music-img" src="./assets/images/icons/music.gif"/>
+                    <div class="server-text">
+                        <div id="playing-now-text" class="name"></div>
+                        <div id="playing-now-body" class="desc" style="text-align: left;" id="music-description"></div>
+                    </div>
+                </div>
+                <br>
+                <div style="
+                    margin-bottom: -20px;
+                ">
+                    <p style="
+                    color: #fff;
+                    font-size: 25px;
+                    font-weight: 800;
+                " id="ads-text">Anuncios</p>
+                </div>
+                <br>
+                <div class="ad" id="ads">
+                </div
+            </div>
+        </div>
+    </div>
+    <div class="modal" style="z-index: 10000;" id="modalStartVersion">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+          <header class="modal-card-head">
+            <p class="modal-card-title" id="start_minecraft_text"></p>
+            <button class="delete" aria-label="close" id="closeStartVersion"></button>
+          </header>
+          <section class="modal-card-body" style="height: 250px; overflow: hidden">
+            <div class="card" style="height: 200px;">
+                <div class="card-header">
+                    <p class="card-header-title" id="textInfo"></p>
+                </div>
+                <div class="card-content">
+                  <div class="content">
+            
+            <div class="select is-info">
+              <select id="listaDeVersiones">
+                <option value="dx" id="select_a_version" selected></option>
+            </select>
+            </div>
+            <button class="button is-info is-small" id="reiniciar-versiones"><span><i class="fa-solid fa-arrows-rotate"></i></span></button>
+            <br>
+            <br>
+            <div id="tipo-de-versiones" style="display: none;">
+                <label class="radio" id="radioVanilla" style="display: none;">
+                    <input type="radio" name="loader" value="vanilla">Vanilla
+                </label>
+
+                <label class="radio" id="radioFabric" style="display: none;">
+                    <input type="radio" name="loader" value="fabric">Fabric
+                </label>
+  
+                <label class="radio" id="radioForge" style="display: none;">
+                    <input type="radio" name="loader" value="forge">Forge
+                </label>
+  
+                <label class="radio" id="radioQuilt" style="display: none;">
+                    <input type="radio" name="loader" value="quilt">Quilt
+                </label>
+            </div>
+            <div id="carga-de-versiones" style="display:none;">
+                <br>
+                <p style="font-size: 10px;" id="textInfoStatus"></p>
+                <progress class="progress is-info" id="progressBar1_" style="border-radius: 5px; display: none;" value="1" max="100" style="transition: all 0.5s;"></progress>
+                <br>
+                <p style="font-size: 10px;" id="logTextArea1_"></p>
+                <br>
+            </div>
+        </div>
+    </div>
+    </section>
+          <footer class="modal-card-foot" id="footermodaliniciarversion" style="display: none;">
+            <button class="button is-success is-small" id="startStartVersion">Iniciar</button>
+            <button class="button is-danger is-small" id="cancelStartVersion">Cancelar</button>
+          </footer>
+        </div>
+    </div>
+    <div class="bottom_bar">
+        <div>
+            <button id="settings-btn" class="button is-info"><span style="font-size: 20px;"><i class="fa-solid fa-gear"></i></span></button>
+            <button id="btnShowNews" class="button is-info" ><span style="font-size: 20px;"><i class="fa-solid fa-circle-question"></i></span></button>
+            <button id="BotonUnirseServidorDiscord" class="button is-info"><span><i class="fa-brands fa-discord"></i> Discord</span></button>
+            <button id="boton_abrir_mods" class="button is-info"><span><i class="fa-solid fa-cube"></i> Battly Mods</span></button>
+            <button id="music-btn" class="button is-info"><span><i class="fa-solid fa-music"></i> Battly Music</span></button>
+            <button id="friends-btn" class="button is-info"><span><i class="fa-solid fa-users"></i> Battly Social</span></button>
+        </div>
+        <div>
+            
+            <button id="instancias-btn" class="button is-info"></button>
+            <button id="download-btn" class="button is-info"></button>
+            <button id="play-btn" class="button is-info"></button>
+        </div>
+    </div>
+    </div>
+</body>
+</html>
