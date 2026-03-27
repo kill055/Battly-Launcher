@@ -69,7 +69,7 @@ obfuscateSrc().then(() => {
                 allowToChangeInstallationDirectory: true,
                 createDesktopShortcut: true,
                 runAfterFinish: true,
-                installerLanguages: ['es'],
+                installerLanguages: ['it'],
                 multiLanguageInstaller: true,
                 license: "./LICENSE.md",
             },
