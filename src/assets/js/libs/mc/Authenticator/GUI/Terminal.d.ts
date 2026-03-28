@@ -1,5 +1,0 @@
-/**
- * @author TECNO BROS
- 
- */
-export {};

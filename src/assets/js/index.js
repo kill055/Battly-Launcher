@@ -1,232 +1,246 @@
-/**
- * @author TECNO BROS
- 
- */
-
 'use strict';
-const {
-	ipcRenderer
-} = require('electron');
-import {
-	config
-} from './utils.js';
+const { ipcRenderer } = require('electron');
+import { config } from './utils.js';
 
 let dev = process.env.NODE_ENV === 'dev';
 const fs = require('fs');
 const fetch = require('node-fetch');
 const axios = require("axios");
-import { Lang } from './utils/lang.js';
+const { getValue, setValue } = require('./assets/js/utils/storage');
+import { LoadAPI } from "./utils/loadAPI.js";
 
-// Crea una instancia de la clase Lang
-const langInstance = new Lang();
+require('./assets/js/libs/errorReporter');
+require('./assets/js/utils/stringLoader.js');
 
-// Llama a GetLang en la instancia
+let stringLoader = null;
 
+let splash_;
+let splashMessage;
+let splashAuthor;
+let message;
+let progress;
 
-/**
- * Represents the Splash class.
- * @class
- */
 class Splash {
-	/**
-	 * Creates an instance of Splash.
-	 * @constructor
-	 */
 	constructor() {
-		this.splash = document.querySelector(".splash");
-		this.splashMessage = document.querySelector(".splash-message");
-		this.splashAuthor = document.querySelector(".splash-author");
-		this.message = document.querySelector(".message");
-		this.progress = document.querySelector("progress");
-		document.addEventListener('DOMContentLoaded', () => this.startAnimation());
-		langInstance.GetLang().then(lang => {
-			this.lang = lang;
-			this.message.innerHTML = this.lang.salutate;
-		}).catch(error => {
-			console.error(error);
-		});
+		this.init();
 	}
 
+	async init() {
+		await this.LoadStrings();
 
-	/**
-	 * Starts the splash animation.
-	 * @async
-	 */
-	async startAnimation() {
-		let splashes = [{
-			"message": "Battly Launcher",
-			"author": "TECNO BROS"
-		},]
-		
-		let sonidoDB = localStorage.getItem("sonido-inicio") ? localStorage.getItem("sonido-inicio") : "start";
-		let sonido_inicio = new Audio('./assets/audios/' + sonidoDB + '.mp3');
+		if (document.readyState === "complete" || document.readyState === "interactive") {
+			splash_ = document.querySelector(".splash");
+			splashMessage = document.querySelector(".splash-message");
+			splashAuthor = document.querySelector(".splash-author");
+			message = document.querySelector(".message");
+			progress = document.querySelector("progress");
+
+			this.start();
+		} else {
+			document.addEventListener('DOMContentLoaded', () => this.start());
+		}
+	}
+
+	async LoadStrings() {
+		if (!stringLoader) {
+			try {
+				await window.ensureStringLoader();
+				stringLoader = window.stringLoader;
+				console.log("Strings loaded successfully");
+			} catch (error) {
+				console.error("Error loading strings:", error);
+			}
+		}
+	}
+
+	async start() {
+		console.log("Ejecutando start()");
+		let splashes = [{ "message": "Battly Launcher", "author": "Battly Studios" }];
+
+		let strings = {
+			"es": "¡Hola!",
+			"en": "Hello!",
+			"fr": "Bonjour!",
+			"de": "Hallo!",
+			"it": "Ciao!",
+			"pt": "Olá!",
+			"ru": "Привет!",
+			"ja": "こんにちは!",
+			"ar": "مرحبا!",
+		};
+
+		message.innerHTML = strings[stringLoader?.getCurrentLanguage() || "en"];
+
+		let sonidoDB = await getValue("sonido-inicio") || "start";
+		let sonido_inicio = new Audio(`./assets/audios/${sonidoDB}.mp3`);
 		sonido_inicio.volume = 0.8;
 		let splash = splashes[Math.floor(Math.random() * splashes.length)];
-		this.splashMessage.textContent = splash.message;
-		this.splashAuthor.children[0].textContent = "" + splash.author;
+		splashMessage.textContent = splash.message;
+		splashAuthor.children[0].textContent = splash.author;
 		await sleep(100);
-		document.querySelector("#splash").style.display = "block";
+		document.querySelector(".splash").style.display = "block";
+		document.querySelector(".splash").classList.add("animate__animated", "animate__jackInTheBox");
 		await sleep(500);
 		sonido_inicio.play();
-		this.splash.classList.add("opacity");
+		splash_.classList.add("opacity");
 		await sleep(500);
-		this.splash.classList.add("translate");
-		this.splashMessage.classList.add("opacity");
-		this.splashAuthor.classList.add("opacity");
-		this.message.classList.add("opacity");
+		document.querySelector("#splash").style.display = "block";
+		splash_.classList.add("translate");
+		splashMessage.classList.add("animate__animated", "animate__flipInX");
+		splashAuthor.classList.add("animate__animated", "animate__flipInX");
+		message.classList.add("animate__animated", "animate__flipInX");
+
 		await sleep(1000);
-		
-		fetch("https://google.com").then(async () => {
-			this.checkUpdate();
-	}).catch(async () => {
-			this.setStatus(this.lang.checking_connection);
-			await sleep(2000);
-			this.setStatus(this.lang.no_connection);
-			await sleep(3000);
-			this.setStatus(this.lang.starting_battly);
+
+		// Verificar conectividad con timeout
+		const timeoutPromise = new Promise((_, reject) =>
+			setTimeout(() => reject(new Error('Connection timeout')), 5000)
+		);
+
+		Promise.race([
+			fetch("https://google.com"),
+			timeoutPromise
+		]).then(async () => {
+			this.checkMaintenance();
+			await setValue("offline-mode", false);
+		}).catch(async (error) => {
+			console.warn("No connection or timeout:", error.message);
+			await setValue("offline-mode", true);
+			this.setStatus(stringLoader?.getString("launcher.checking_connection") || "Checking connection...");
+			await sleep(1000);
+			this.setStatus(stringLoader?.getString("launcher.no_connection") || "No connection");
+			await sleep(1500);
+			this.setStatus(stringLoader?.getString("launcher.starting_battly") || "Starting Battly...");
 			await sleep(500);
-			this.startLauncher();
-		})
-		
+			this.startBattly();
+		});
 	}
 
-	/**
-	 * Checks for updates.
-	 * @async
-	 */
-	async checkUpdate() {
-		if(dev) return sleep(500).then(async () => { 
-			
-		//aplicar las animaciones pero al reves
-		this.splash.classList.remove("translate");
-		this.splashMessage.classList.remove("opacity");
-		this.splashAuthor.classList.remove("opacity");
-		await sleep(500);
-		this.startLauncher(); 
-		});
-		this.setStatus(this.lang.checking_updates);
-		
-		ipcRenderer.invoke('update-app').then(err => {
-			if(err) {
-            	if (err.error) {
-                	let error = err.message;
-					error = error.toString().slice(0, 50);
-                	this.shutdown(`${this.lang.update_error}${error}`);
-            	}
-			}
-        })
+	async checkMaintenance() {
+		try {
+			// Agregar timeout a la verificación de mantenimiento
+			const timeoutPromise = new Promise((_, reject) =>
+				setTimeout(() => reject(new Error('Maintenance check timeout')), 10000)
+			);
 
-        ipcRenderer.on('updateAvailable', () => {
-            this.setStatus(this.lang.update_available);
-            this.toggleProgress();
-            
+			const res = await Promise.race([
+				new LoadAPI().GetConfig(true),
+				timeoutPromise
+			]);
+
+			if (res.maintenance) return this.shutdown(res.maintenance_message);
+			this.setStatus(stringLoader?.getString("launcher.starting_launcher") || "Starting launcher...");
+			await sleep(500);
+			setTimeout(() => {
+				this.checkForUpdates();
+			}, 1000);
+			return true;
+		} catch (error) {
+			console.error("Error checking maintenance, starting in offline mode:", error);
+			// En lugar de cerrar el launcher, iniciarlo en modo offline
+			this.setStatus(stringLoader?.getString("launcher.offline_mode") || "Starting in offline mode...");
+			await sleep(1500);
+			this.checkForUpdates();
+			return false;
+		}
+	}
+
+	async startBattly() {
+		splash_.classList.remove("translate");
+		splashMessage.classList.add("animate__animated", "animate__flipOutX");
+		splashAuthor.classList.add("animate__animated", "animate__flipOutX");
+		this.setStatus(stringLoader?.getString("launcher.ending") || "Closing...");
+		await sleep(500);
+		ipcRenderer.send('main-window-open');
+		ipcRenderer.send('update-window-close');
+	}
+
+	shutdown(text) {
+		this.setStatus(`${text}<br>${stringLoader?.getString("launcher.closing_countdown") || "Closing in"} 10s`);
+		let i = 10;
+		setInterval(() => {
+			this.setStatus(`${text}<br>${stringLoader?.getString("launcher.closing_countdown") || "Closing in"} ${i}s`);
+			if (i < 0) ipcRenderer.send('update-window-close');
+			i--;
+		}, 1000);
+	}
+
+	setStatus(text) {
+		message.innerHTML = text;
+	}
+
+	toggleProgress() {
+		if (this.progress.classList.toggle("show")) this.setProgress(0, 1);
+	}
+
+	setProgress(value, max) {
+		this.progress.value = value;
+		this.progress.max = max;
+	}
+
+	async checkForUpdates() {
+		if (dev) return sleep(500).then(async () => {
+
+			splash_.classList.remove("translate");
+			splashMessage.classList.add("animate__animated", "animate__flipOutX");
+			splashAuthor.classList.add("animate__animated", "animate__flipOutX");
+			await sleep(500);
+			this.startBattly();
+		});
+
+		this.setStatus(stringLoader?.getString("launcher.checking_updates") || "Checking for updates...");
+
+		ipcRenderer.invoke('update-app').then(err => {
+			if (err) {
+				if (err.error) {
+					let error = err.message;
+					error = error.toString().slice(0, 50);
+					this.shutdown(`${stringLoader?.getString("launcher.update_error") || "Update error"} <br> ${error}`);
+				}
+			}
+		})
+
+		ipcRenderer.on('updateAvailable', () => {
+			this.setStatus(stringLoader?.getString("launcher.update_available") || "Update available");
+
 			let boton_actualizar = document.getElementById("btn_actualizar");
 			boton_actualizar.style.display = "block";
 			boton_actualizar.addEventListener("click", () => {
-				this.setStatus(this.lang.downloading_update);			
+				this.setStatus(stringLoader?.getString("launcher.downloading_update") || "Downloading update...");
+				this.toggleProgress();
 				ipcRenderer.send('start-update');
 			})
 
 			let boton_cancelar = document.getElementById("btn_jugar");
 			boton_cancelar.style.display = "block";
 			boton_cancelar.addEventListener("click", () => {
-				this.setStatus(this.lang.update_cancelled);
-				this.maintenanceCheck();
+				this.setStatus(stringLoader?.getString("launcher.update_cancelled") || "Update cancelled");
+				this.checkMaintenance();
 			})
-        })
+		})
 
-        ipcRenderer.on('download-progress', (event, progress) => {
-            this.setProgress(progress.transferred, progress.total);
-        })
+		ipcRenderer.on('updateNewAvailable', () => {
+			this.setStatus(stringLoader?.getString("launcher.update_available") || "Update available");
 
-        ipcRenderer.on('update-not-available', () => {
-            this.maintenanceCheck();
-        })
+			ipcRenderer.send('start-new-update');
+		})
+
+		ipcRenderer.on('download-progress', (event, progress) => {
+			this.setProgress(progress.transferred, progress.total);
+		})
+
+		ipcRenderer.on('update-not-available', () => {
+			this.startBattly();
+		})
 
 		ipcRenderer.on('update-downloaded', async () => {
-			this.setStatus(this.lang.update_downloaded);
+			this.setStatus(stringLoader?.getString("launcher.update_downloaded") || "Update downloaded");
 			await sleep(5000);
 			this.toggleProgress();
 			ipcRenderer.send('update-window-close');
 			ipcRenderer.send('start-update');
-		}
-		)
-	}
-
-	/**
-	 * Checks for maintenance mode.
-	 * @async
-	 */
-	async maintenanceCheck() {
-		config.GetConfig().then(async res => {
-			if (res.maintenance) return this.shutdown(res.maintenance_message);
-			this.setStatus(this.lang.starting_launcher);
-			
-		//aplicar las animaciones pero al reves
-		this.splash.classList.remove("translate");
-		this.splashMessage.classList.remove("opacity");
-		this.splashAuthor.classList.remove("opacity");
-		await sleep(500);
-			setTimeout(() => {
-				this.startLauncher();
-			}, 1000);
-			return true;
-		}).catch(e => {
-			console.error(e);
-			return this.shutdown(this.lang.error_connecting_server);
 		})
 	}
-
-	/**
-	 * Starts the launcher.
-	 * @async
-	 */
-	async startLauncher() {
-		this.setStatus(this.lang.ending);
-		await sleep(500);
-		ipcRenderer.send('main-window-open');
-		ipcRenderer.send('update-window-close');
-	}
-
-	/**
-	 * Shuts down the launcher.
-	 * @param {string} text - The shutdown message.
-	 */
-	shutdown(text) {
-		this.setStatus(`${text}<br>Cerrando 10s`);
-		let i = 10;
-		setInterval(() => {
-			this.setStatus(`${text}<br>${this.lang.closing_countdown} ${i}s`);
-			if (i < 0) ipcRenderer.send('update-window-close');
-		}, 1000);
-	}
-
-	/**
-	 * Sets the status message.
-	 * @param {string} text - The status message.
-	 */
-	setStatus(text) {
-		this.message.innerHTML = text;
-	}
-
-	/**
-	 * Toggles the progress bar.
-	 */
-	toggleProgress() {
-		if (this.progress.classList.toggle("show")) this.setProgress(0, 1);
-	}
-
-	/**
-	 * Sets the progress bar value.
-	 * @param {number} value - The progress value.
-	 * @param {number} max - The maximum progress value.
-	 */
-	setProgress(value, max) {
-		this.progress.value = value;
-		this.progress.max = max;
-	}
-		
-
 }
 
 function sleep(ms) {
@@ -236,6 +250,14 @@ function sleep(ms) {
 document.addEventListener("keydown", (e) => {
 	if (e.ctrlKey && e.shiftKey && e.keyCode == 73 || e.keyCode == 123) {
 		ipcRenderer.send("update-window-dev-tools");
+
+		console.log("%c¡ESPERA!", "color: #3e8ed0; font-size: 70px; font-weight: bold; font-family: 'Poppins'; text-shadow: 0 0 5px #000;");
+		console.log("%c¡No hagas nada aquí si no sabes lo que estás haciendo!", "color: #3e8ed0; font-size: 18px; font-weight: bold; font-family: 'Poppins';");
+		console.log("%cTampoco pegues nada externo aquí, ¡hay un 101% de posibilidades de que sea un virus!", "color: #3e8ed0; font-size: 15px; font-weight: bold; font-family: 'Poppins';");
 	}
-})
+});
+
 new Splash();
+
+console.log('[ErrorReporter] Sistema de reporte manual listo. Presiona Ctrl+E para reportar errores.');
+

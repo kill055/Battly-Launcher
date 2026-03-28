@@ -1,235 +1,2399 @@
-/**
- * @author TECNO BROS
- 
- */
 "use strict";
-import {
-    logger,
-    database,
-    changePanel
-} from "../utils.js";
 
-const {
-    Client,
-    Status
-} = require("minecraft-launcher-core");
-const {
-    Launch,
-    Mojang
-} = require("./assets/js/libs/mc/Index");
-const {
-    ipcRenderer,
-    ipcMain,
-    shell
-} = require("electron");
+console.time("🕐 LoadHomeImports")
+import { logger, database, changePanel } from "../utils.js";
 
-const pkg = require("../package.json");
-const Swal = require("./assets/js/libs/sweetalert/sweetalert2.all.min");
+const { StringLoader } = require("./assets/js/utils/stringLoader.js");
+const { loadMinecraftJavaCore } = require('./assets/js/utils/library-loader');
+const { ipcRenderer, ipcMain, shell } = require("electron");
 
-const Toast = Swal.mixin({
-    toast: true,
-    position: "top-end",
-    showConfirmButton: false,
-    timer: 5000,
-    timerProgressBar: true,
-    didOpen: (toast) => {
-        toast.addEventListener("mouseenter", Swal.stopTimer);
-        toast.addEventListener("mouseleave", Swal.resumeTimer);
-    },
-});
+const AnalyticsController = require("./assets/js/utils/analyticsController.js");
 
+import { LoadAPI } from "../utils/loadAPI.js";
+import { CrashReport } from "../utils/crash-report.js";
+import { LoadMinecraft } from "../utils/load-minecraft.js";
+import { Download } from "../utils/home/download.js";
+import { Instances } from "../utils/instances.js";
+const { getValue, setValue } = require('./assets/js/utils/storage');
 
-function ShowPanelError(error) {
-    let audioError = new Audio("./assets/audios/error.mp3");
-    audioError.play();
-
-    ipcRenderer.send("new-notification", {
-        title: "Error al abrir Minecraft",
-        body: "Consulta el error abriendo Battly.",
-    });
-    // Crear el elemento div principal con la clase "modal is-active"
-    const modalDiv = document.createElement('div');
-    modalDiv.className = 'modal is-active';
-    modalDiv.style.zIndex = '4';
-
-    // Crear el elemento div con la clase "modal-background" y agregarlo al div principal
-    const modalBackgroundDiv = document.createElement('div');
-    modalBackgroundDiv.className = 'modal-background';
-    modalDiv.appendChild(modalBackgroundDiv);
-
-    // Crear el elemento div con la clase "modal-card" y el estilo de fondo y agregarlo al div principal
-    const modalCardDiv = document.createElement('div');
-    modalCardDiv.className = 'modal-card';
-    modalCardDiv.style.backgroundColor = '#444444';
-    modalDiv.appendChild(modalCardDiv);
-
-    // Crear el elemento header con la clase "modal-card-head" y el estilo de fondo y agregarlo al div modal-card
-    const headerDiv = document.createElement('header');
-    headerDiv.className = 'modal-card-head';
-    headerDiv.style.backgroundColor = '#444444';
-    modalCardDiv.appendChild(headerDiv);
-
-    // Crear el elemento p con la clase "modal-card-title", el estilo de color y texto, y agregarlo al div header
-    const titleP = document.createElement('p');
-    titleP.className = 'modal-card-title';
-    titleP.style.color = '#fff';
-    titleP.textContent = 'Error al abrir Minecraft';
-    headerDiv.appendChild(titleP);
-
-    // Crear el elemento section con la clase "modal-card-body" y el estilo de fondo y color, y agregarlo al div modal-card
-    const bodySection = document.createElement('section');
-    bodySection.className = 'modal-card-body';
-    bodySection.style.backgroundColor = '#444444';
-    bodySection.style.color = '#fff';
-    modalCardDiv.appendChild(bodySection);
-
-    // Crear el elemento p con el mensaje de error y agregarlo al div section
-    const errorP = document.createElement('p');
-    errorP.textContent = 'Esto es un mensaje de error al iniciar Minecraft. Esto no es por culpa de Battly, no reportar este problema.';
-    bodySection.appendChild(errorP);
-
-    // Crear el elemento div con la clase "card" y agregarlo al div section
-    const cardDiv = document.createElement('div');
-    cardDiv.className = 'card';
-    bodySection.appendChild(cardDiv);
-
-    // Crear el elemento header con la clase "card-header" y agregarlo al div card
-    const cardHeaderDiv = document.createElement('header');
-    cardHeaderDiv.className = 'card-header';
-    cardDiv.appendChild(cardHeaderDiv);
-
-    // Crear el elemento p con la clase "card-header-title" y agregarlo al div card-header
-    const cardTitleP = document.createElement('p');
-    cardTitleP.className = 'card-header-title';
-    cardTitleP.textContent = 'Error encontrado';
-    cardHeaderDiv.appendChild(cardTitleP);
-
-    // Crear el elemento div con la clase "card-content" y el id "content" y agregarlo al div card
-    const cardContentDiv = document.createElement('div');
-    cardContentDiv.className = 'card-content';
-    cardContentDiv.id = 'content';
-    cardDiv.appendChild(cardContentDiv);
-
-    // Crear el elemento textarea con las clases y atributos y agregarlo al div card-content
-    const textarea = document.createElement('textarea');
-    textarea.className = 'textarea errores is-info is-family-code';
-    textarea.disabled = true;
-    textarea.rows = '10';
-    textarea.cols = '50';
-    textarea.textContent = error;
-    cardContentDiv.appendChild(textarea);
-
-    // Crear el elemento footer con la clase "modal-card-foot" y el estilo de fondo y agregarlo al div modal-card
-    const footerDiv = document.createElement('footer');
-    footerDiv.className = 'modal-card-foot';
-    footerDiv.style.backgroundColor = '#444444';
-    modalCardDiv.appendChild(footerDiv);
-
-    // Crear el elemento button con las clases y atributos y agregarlo al div modal-card-foot
-    const closeButton = document.createElement('button');
-    closeButton.className = 'button is-danger';
-    closeButton.textContent = 'Cerrar';
-    closeButton.addEventListener('click', () => {
-        modalDiv.remove();
-    });
-
-    //boton de guardar logs, mostrará un dialogo para guardar los logs en un archivo de texto, abrirá el explorador de archivos y se podrá guardar donde quiera
-    const saveLogsButton = document.createElement('button');
-    saveLogsButton.className = 'button is-info';
-    saveLogsButton.textContent = 'Guardar logs';
-    saveLogsButton.addEventListener('click', () => {
-        let logs = document.querySelector('.errores').value;
-        let logsPath = path.join(__dirname, 'logs.txt');
-        fs.writeFileSync(logsPath, logs);
-        shell.openPath(logsPath);
-    });
-
-    const discordBtn = document.createElement('button');
-    discordBtn.className = 'button is-info';
-    discordBtn.addEventListener('click', () => {
-        shell.openExternal('https://discord.gg/tecno-bros-885235460178342009');
-    });
-    discordBtn.innerHTML = '<span><i class="fab fa-discord"></i> Discord</span>';
-
-    footerDiv.appendChild(closeButton);
-    footerDiv.appendChild(saveLogsButton);
-    footerDiv.appendChild(discordBtn);
-    // Agregar saltos de línea al final del código
-    modalDiv.appendChild(document.createElement('br'));
-
-    // Agregar el div principal al cuerpo del documento
-    document.body.appendChild(modalDiv);
-}
-
-import {
-    LoadAPI
-} from "../utils/loadAPI.js";
 
 const fetch = require("node-fetch");
-let offlineMode = false;
-fetch("https://google.com")
-    .then(async () => {
-        offlineMode = false;
-    })
-    .catch(async () => {
-        offlineMode = true;
-    });
 
 const fs = require("fs");
 const path = require("path");
 
 const dataDirectory =
     process.env.APPDATA ||
-    (process.platform == "darwin" ?
-        `${process.env.HOME}/Library/Application Support` :
-        process.env.HOME);
+    (process.platform == "darwin"
+        ? `${process.env.HOME}/Library/Application Support`
+        : process.env.HOME);
 
 let logFilePath = `${dataDirectory}/.battly/Registro.log`;
-import {
-    consoleOutput
-} from "../utils/logger.js";
+import { consoleOutput } from "../utils/logger.js";
 let consoleOutput_;
 
-import { Lang } from "../utils/lang.js";
-import * as NBT from "../../../../node_modules/nbtify/dist/index.js";
+import { Alert } from "../utils/alert.js";
 
-let lang;
-let langs;
+
+const ShowCrashReport = new CrashReport().ShowCrashReport;
+const LaunchMinecraft = new LoadMinecraft().LaunchMinecraft;
+const DownloadFiles = new LoadMinecraft().DownloadFiles;
+const InstancesClass = new Instances().Instancias;
+
+import { AskModal } from '../utils/askModal.js';
+const modal = new AskModal();
+
+
+console.timeEnd("🕐 LoadHomeImports")
 class Home {
     static id = "home";
     async init(config, news) {
-        lang = await new Lang().GetLang();
-        langs = lang;
+        console.time("🕐 HomePanelInit");
+
+        if (!window.stringLoader) {
+            window.stringLoader = new StringLoader();
+        }
+        await window.stringLoader.loadStrings();
+
+        console.time("🌐 Load API Data");
+        const [battlyConfig, versions, versionsMojang, db] = await Promise.all([
+            new LoadAPI().GetConfig(),
+            new LoadAPI().GetVersions(),
+            new LoadAPI().GetVersionsMojang(),
+            new database().init()
+        ]);
+        console.timeEnd("🌐 Load API Data");
+
+        this.BattlyConfig = battlyConfig;
+        this.Versions = versions;
+        this.VersionsMojang = versionsMojang;
+        this.database = db;
+
+        console.time("⏳ Wait Data");
         this.WaitData();
+        console.timeEnd("⏳ Wait Data");
+
         this.config = config;
         this.news = await news;
-        this.offlineMode = offlineMode;
+
+        console.time("📰 Show News");
         this.ShowNews();
-        this.BattlyConfig = await new LoadAPI().GetConfig();
-        this.Versions = await new LoadAPI().GetVersions();
-        this.VersionsMojang = await new LoadAPI().GetVersionsMojang();
-        this.database = await new database().init();
+        console.timeEnd("📰 Show News");
+
+        console.time("🔄 Background Sync");
+        console.timeEnd("🔄 Background Sync");
+
+        console.time("📰 Init News");
         this.initNews();
-        this.initLaunch();
+        console.timeEnd("📰 Init News");
+
+        console.time("🌐 Init Server Status");
         this.initStatusServer();
+        console.timeEnd("🌐 Init Server Status");
+
+        console.time("🎛 Init Buttons");
         this.initBtn();
+        console.timeEnd("🎛 Init Buttons");
+
+        console.time("📂 Load Mods");
         this.CargarMods();
+        console.timeEnd("📂 Load Mods");
+
+        console.time("🎮 Init Discord State");
         this.IniciarEstadoDiscord();
-        this.CargarVersiones();
+        console.timeEnd("🎮 Init Discord State");
+
+        console.time("⚙ Init Config");
         this.initConfig();
+        console.timeEnd("⚙ Init Config");
+
+        console.time("🎨 Init Theme");
         this.InitTheme();
+        console.timeEnd("🎨 Init Theme");
+
+        console.time("📜 Get Logs Socket");
         this.GetLogsSocket();
+        console.timeEnd("📜 Get Logs Socket");
+
+        console.time("🔧 Change Java Path");
         this.CambiarRutaJava();
-        this.Instancias();
+        console.timeEnd("🔧 Change Java Path");
+
+        console.time("📜 Generate Logs Socket");
         this.GenerarLogsSocket();
+        console.timeEnd("📜 Generate Logs Socket");
+
+        console.time("📶 Set Status");
         this.SetStatus();
+        console.timeEnd("📶 Set Status");
+
+        console.time("📡 Requests");
         this.Solicitudes();
-        this.Ads();
+        console.timeEnd("📡 Requests");
+
+        console.time("📢 Ads");
+        console.timeEnd("📢 Ads");
+
+        console.time("📖 InstancesClass");
+        InstancesClass();
+        console.timeEnd("📖 InstancesClass");
+
+        console.time("📖 Tutorial");
+        this.InitTutorialAfterNews();
+        console.timeEnd("📖 Tutorial");
+
+        console.log("Home panel initialized");
+        console.timeEnd("🕐 HomePanelInit");
+
+        this.addEventListenerButtonsSound();
+
+        this.HandlePlayPanel();
+
+        this.LoadAnalytics();
+
+        this.BattlySavesCloud();
+
+        this.syncBackupHistoryOnInit();
+    }
+
+
+    async LoadAnalytics() {
+
+
+
+        const Store = require('electron-store');
+        const store = new Store({ name: 'battly-data' });
+        const SERVICE = 'Battly Launcher';
+
+
+        async function migrateAllLocalStorageSecure() {
+            console.log('🔄 Iniciando migración segura de localStorage → electron-store');
+
+            const store = new Store({
+                name: 'battly-data',
+            });
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                let raw = await localStorage.getItem(key);
+                let val;
+                try {
+                    val = JSON.parse(raw);
+                } catch {
+                    val = raw;
+                }
+                store.set(key, val);
+                console.log(`  • Migrada la clave "${key}"`);
+            }
+        }
+    }
+
+
+
+    async LaunchDownloadedVersion(versionData) {
+        console.log("🚀 Iniciando LaunchDownloadedVersion con datos:");
+        console.log(versionData);
+
+        async function getVersionAssets(version) {
+            const versionFile = `${dataDirectory}/.battly/versions/${version}/${version}.json`;
+            if (!fs.existsSync(versionFile)) return null;
+
+            const versionData = JSON.parse(fs.readFileSync(versionFile, "utf-8"));
+            if (version.toLowerCase().includes("optifine")) return versionData.inheritsFrom;
+            return versionData.assets ? versionData.assets : null;
+        }
+
+        let version = versionData.version;
+        let isExtra = versionData.isExtra;
+        let loader = versionData.loader;
+        let loaderEnabled = loader ? true : false;
+        let selectedAccount = await this.database.getSelectedAccount();
+
+        const pkg = require("../package.json");
+        let urlpkg = pkg.user ? `${pkg.url}/${pkg.user}` : pkg.url;
+        let ram = (await this.database.get("1234", "ram")).value;
+        const gameUrl = this.config.game_url || `${urlpkg}/files`;
+        const rootPath = `${dataDirectory}/.battly`;
+        const memory = { min: `${ram.ramMin * 1024}M`, max: `${ram.ramMax * 1024}M` };
+
+        const JVM_ARGS = [
+            "-javaagent:authlib-injector.jar=https://api.battlylauncher.com",
+            "-Dauthlibinjector.mojangAntiFeatures=enabled",
+            "-Dauthlibinjector.noShowServerName",
+            "-Dauthlibinjector.disableHttpd",
+        ];
+
+        if (!isExtra) {
+            const opts = {
+                url: gameUrl,
+                authenticator: selectedAccount,
+                detached: false,
+                timeout: 10000,
+                path: rootPath,
+                downloadFileMultiple: 40,
+                version: version,
+                loader: {
+                    type: loader,
+                    build: this.BattlyConfig.loader.build,
+                    enable: loader === "vanilla" ? false : loaderEnabled,
+                },
+                verify: false,
+                ignored: selectedAccount.type === "microsoft" ? ["libraries/com/mojang/authlib"] : [],
+                java: false,
+                memory: memory,
+                beforeLaunch: this.BattlyConfig.beforeLaunch,
+                JVM_ARGS: selectedAccount.type === "battly" ? JVM_ARGS : [],
+            };
+
+            console.log("Opciones de lanzamiento:");
+            console.log(opts);
+
+            const minecraftLib = await loadMinecraftJavaCore(this.BattlyConfig); const { Launch } = minecraftLib;
+            const Launcher = new Launch();
+
+            await Launcher.Launch(opts);
+
+            Launcher.on("progress", (progress) => {
+                console.log("Progress: ", progress);
+            });
+
+            Launcher.on("error", (error) => {
+                console.error("Error: ", error);
+                ShowCrashReport(error);
+            });
+
+            let dataEvent = false;
+            Launcher.on("data", async (data) => {
+                new logger("Minecraft", "#36b030");
+                if (!dataEvent) {
+                    document.getElementById("launching-mc-modal-status-container-files").querySelector("i").classList.remove("fa-sync");
+                    document.getElementById("launching-mc-modal-status-container-files").querySelector("i").classList.remove("fa-spin");
+                    document.getElementById("launching-mc-modal-status-container-files").querySelector("i").classList.add("fa-check");
+                    let launcherSettings = (await this.database.get("1234", "launcher")).value;
+                    ipcRenderer.send("main-window-hide", { shouldHideLauncher: launcherSettings.launcher.close === "close-launcher" });
+                    dataEvent = true;
+
+                    await setValue('lastMinecraftLaunch', {
+                        timestamp: Date.now(),
+                        version: versionData.id || versionData.version
+                    });
+                }
+
+                if (data.includes("Setting user")) {
+                    const launchingModal = document.getElementById("launching-modal");
+                    if (launchingModal) {
+                        launchingModal.remove();
+                    }
+                }
+            });
+
+            Launcher.on("close", async (code) => {
+                console.log("Launcher closed with code:");
+                console.log(code);
+                new logger("Launcher", "#3e8ed0");
+
+                let launcherSettings = (await this.database.get("1234", "launcher")).value;
+                if (launcherSettings.launcher.close === "close-launcher") ipcRenderer.send("main-window-show");
+            });
+
+        } else {
+            const assetsVersion = await getVersionAssets(versionData.customVersion);
+
+            if (!assetsVersion) {
+                console.error(`Error: No se pudo obtener la versión base de la versión extra: ${versionData.customVersion}`);
+                return;
+            }
+
+            let runtimePath = `${dataDirectory}/.battly/runtime`;
+            let selectecJavaPath;
+            let selectedRuntimeVersion = versionData.requiredJavaVersion;
+
+            console.log(`🔎 Intentando buscar la versión de Java`);
+            if (!selectedRuntimeVersion) {
+                console.log(`⚠️ No se encontró la versión de Java requerida, buscando la versión por defecto...`);
+                const localStoragejavaPath = await getValue("java-path");
+                if (localStoragejavaPath) {
+                    console.log(`✅ Se encontró la ruta de Java en el almacenamiento local: ${localStoragejavaPath}`);
+                    selectecJavaPath = localStoragejavaPath;
+                } else {
+                    console.log(`⚠️ No se encontró la ruta de Java en el almacenamiento local, buscando la versión por defecto...`);
+                    const javaPriority = ["jre-8", "jre-17", "jre-11", "jre-16", "jre-21"];
+                    const folders = fs.readdirSync(runtimePath);
+
+                    for (const javaVersion of javaPriority) {
+                        for (const folder of folders) {
+                            if (folder.includes(javaVersion)) {
+                                selectecJavaPath = `${runtimePath}/${folder}/bin/java${process.platform === "win32" ? ".exe" : ""}`;
+                                console.log(`✅ Se encontró la ruta de Java ${javaVersion.replace("jre-", "")}. Se intentará iniciar Minecraft con esta versión`);
+                                break;
+                            }
+                        }
+                        if (selectecJavaPath) break;
+                    }
+                }
+            } else {
+                console.log(`🔎 Se encontró la versión de Java requerida: ${selectedRuntimeVersion}`);
+                fs.readdirSync(runtimePath).forEach((folder) => {
+                    if (folder.includes(selectedRuntimeVersion)) {
+                        selectecJavaPath = `${runtimePath}/${folder}/bin/java${process.platform === "win32" ? ".exe" : ""}`;
+                        console.log(`✅ Se encontró la ruta de Java ${selectedRuntimeVersion}. Se intentará iniciar Minecraft con esta versión`);
+                    }
+                });
+            }
+
+            const opts = {
+                authorization: selectedAccount,
+                root: rootPath,
+                version: {
+                    number: assetsVersion,
+                    custom: versionData.customVersion,
+                    type: "release"
+                },
+                memory: {
+                    max: `${memory.max}`,
+                    min: `${memory.min}`
+                },
+                javaPath: selectecJavaPath,
+            };
+
+            console.log("Opciones de lanzamiento:");
+            console.log(opts);
+
+            const { Client } = require('minecraft-launcher-core');
+            const launcher = new Client();
+
+            launcher.launch(opts);
+
+            let dataEvent = false;
+            launcher.on('debug', (e) => {
+
+                if (e.includes("Launching with arguments")) {
+                    document.getElementById("launching-mc-modal-status-container-files").querySelector("i").classList.remove("fa-sync");
+                    document.getElementById("launching-mc-modal-status-container-files").querySelector("i").classList.remove("fa-spin");
+                    document.getElementById("launching-mc-modal-status-container-files").querySelector("i").classList.add("fa-check");
+                    dataEvent = true;
+                }
+
+                console.log(e)
+
+            });
+            launcher.on('data', async (e) => {
+                if (e.includes("Setting user")) {
+                    const launchingModal = document.getElementById("launching-modal");
+                    if (launchingModal) {
+                        launchingModal.remove();
+                    }
+
+                    let launcherSettings = (await this.database.get("1234", "launcher")).value;
+                    ipcRenderer.send("main-window-hide", { shouldHideLauncher: launcherSettings.launcher.close === "close-launcher" });
+                }
+
+                console.log(e)
+            });
+
+            launcher.on('close', async (code) => {
+                console.log("🎮 Minecraft cerrado con código:", code);
+
+                await this.trackPlayedWorlds();
+
+                let launcherSettings = (await this.database.get("1234", "launcher")).value;
+                if (launcherSettings.launcher.close === "close-launcher") ipcRenderer.send("main-window-show");
+
+                const autoSyncEnabled = await getValue('autoSyncEnabled');
+                console.log("🔍 Estado de autoSyncEnabled:", autoSyncEnabled);
+
+                if (autoSyncEnabled) {
+                    console.log('🔄 Iniciando sincronización automática en segundo plano...');
+                    this.startAutoBackupOnGameClose().catch(err => {
+                        console.error('❌ Error en sincronización automática:', err);
+                    });
+                } else {
+                    console.log('⏸️ Sincronización automática desactivada. No se realizará backup.');
+                }
+            });
+        }
+    }
+
+
+    async HandlePlayPanel() {
+        const thiss = this;
+
+        function getLoaderOptionsHTML() {
+            const loaders = [
+                { id: "vanilla", icon: "minecraft.png", title: "Vanilla", desc: "La versión original de Minecraft. Sin modificaciones." },
+                { id: "fabric", icon: "fabric.png", title: "Fabric", desc: "Un modloader ligero y fácil de usar para mods." },
+                { id: "forge", icon: "forge.png", title: "Forge", desc: "El modloader más popular; gran cantidad de mods." },
+                { id: "quilt", icon: "quilt.png", title: "Quilt", desc: "Modloader experimental para Minecraft, moderno y compatible." },
+                { id: "legacyfabric", icon: "legacyfabric.png", title: "LegacyFabric", desc: "La versión legacy de Fabric para Minecraft antiguas." },
+                { id: "neoforge", icon: "neoforge.png", title: "NeoForge", desc: "Modloader moderno y ligero, versión moderna de Forge." }
+            ];
+            return loaders
+                .map(loader => `
+            <div class="loader-option" data-loader="${loader.id}" id="playLoaderType-${loader.id}">
+              <img src="./assets/images/icons/${loader.icon}" alt="">
+              <span class="button-span">
+                <h1>${loader.title}</h1>
+                <h2>${loader.desc}</h2>
+              </span>
+            </div>
+          `)
+                .join("");
+        }
+
+        function formatVersion(version = "") {
+            if (!version) return "";
+
+            if (/optifine/i.test(version)) {
+                return version.replace(/-?optifine.*$/i, "-OptiFine");
+            }
+
+            const suffixes = [
+                "forge",
+                "fabric",
+                "quilt",
+                "legacyfabric",
+                "neoforge",
+            ];
+
+            for (const suffix of suffixes) {
+                if (new RegExp(suffix, "i").test(version)) {
+                    return version.replace(new RegExp(`[\\s-]*${suffix}`, "i"), "").trim();
+                }
+            }
+
+            return version;
+        }
+
+        function getCompatibleLoaders(version) {
+            if (!version) return [];
+
+            const { versions } = thiss.Versions;
+            const suffixMap = {
+                "-forge": "forge",
+                "-fabric": "fabric",
+                "-quilt": "quilt",
+                "-neoforge": "neoforge",
+                "-legacyfabric": "legacyfabric",
+            };
+
+            const loaders = new Set();
+
+            versions
+                .filter(v => v.realVersion === version)
+                .forEach(v => {
+                    for (const [suffix, loader] of Object.entries(suffixMap)) {
+                        if (v.version.endsWith(suffix)) {
+                            loaders.add(loader);
+                            break;
+                        }
+                    }
+                });
+
+            return Array.from(loaders);
+        }
+
+        function setVersionsInSelect(selectElement) {
+            if (!selectElement) return;
+
+            const { versions } = thiss.Versions;
+            const localVersions = fs.readdirSync(`${dataDirectory}/.battly/versions`);
+
+            const fragment = document.createDocumentFragment();
+
+            localVersions.forEach((version) => {
+                const option = document.createElement("option");
+                option.value = version;
+                option.innerText = version;
+                option.dataset.isExtra = "true";
+
+                const exactMatch = versions.find(v => v.realVersion === version);
+                if (exactMatch) {
+                    delete option.dataset.isExtra;
+                    option.value = exactMatch.realVersion;
+                    option.innerText = exactMatch.realVersion;
+                    fragment.appendChild(option);
+                    return;
+                }
+
+                if (/optifine/i.test(version)) {
+                    const [base] = version.split("-");
+                    const ofMatch = versions.find(v => v.version === `${base}-optifine`);
+                    if (ofMatch?.requiredJavaVersion) {
+                        option.dataset.requiredJavaVersion = ofMatch.requiredJavaVersion;
+                    }
+                    fragment.appendChild(option);
+                    return;
+                }
+
+                const folderMatch = versions.find(v => v.folderName === version);
+                if (folderMatch?.requiredJavaVersion) {
+                    option.dataset.requiredJavaVersion = folderMatch.requiredJavaVersion ?? "jre-17";
+                }
+
+                fragment.appendChild(option);
+            });
+
+            selectElement.appendChild(fragment);
+        }
+
+        function getLoaderIcon(version) {
+            const icons = {
+                optifine: "optifine.png",
+                neoforge: "neoforge.png",
+                legacyfabric: "legacyfabric.png",
+                forge: "forge.png",
+                fabric: "fabric.png",
+                quilt: "quilt.png",
+                "battly client": "battly.png",
+                cmpack: "cmpack.png",
+                ares: "ares.png",
+                batmod: "batmod.png"
+            };
+            const lower = version.toLowerCase();
+            for (let key in icons) {
+                if (lower.includes(key)) return `https://battlylauncher.com/assets/img/battlylauncher/${icons[key]}`;
+            }
+            return "https://battlylauncher.com/assets/img/battlylauncher/minecraft.png";
+        }
+
+        function formatDate(isoDate) {
+            const date = new Date(isoDate);
+            const now = new Date();
+            const opts = { hour: "2-digit", minute: "2-digit" };
+            if (date.toDateString() === now.toDateString()) {
+                return `Hoy a las ${date.toLocaleTimeString("es-ES", opts)}`;
+            }
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (date.toDateString() === yesterday.toDateString()) {
+                return `Ayer a las ${date.toLocaleTimeString("es-ES", opts)}`;
+            }
+            return date.toLocaleDateString("es-ES", { day: "2-digit", month: "long" }) +
+                ` a las ${date.toLocaleTimeString("es-ES", opts)}`;
+        }
+
+        async function createRecentVersionsList() {
+            const latest3Versions = await getValue("latest3Versions") || [];
+            const container = document.createElement("div");
+            container.classList.add("recent-versions-list");
+
+            latest3Versions.forEach(({ version, loader, dateOpened, isExtra, requiredJavaVersion, customVersion }) => {
+                const formattedVersion = formatVersion(isExtra === "true" ? customVersion : version);
+                const versionItem = document.createElement("div");
+                versionItem.classList.add("recent-version-item");
+                versionItem.dataset.version = version;
+                versionItem.dataset.loader = loader || '';
+                versionItem.dataset.isExtra = isExtra;
+                versionItem.dataset.requiredJavaVersion = requiredJavaVersion || '';
+                versionItem.dataset.customVersion = customVersion || '';
+                versionItem.innerHTML = `
+            <div class="version-item">
+              <div class="version-item-info">
+                <div class="version-item-icon">
+                  <img src="${getLoaderIcon(isExtra === "true" ? customVersion : (loader ? `${version}-${loader}` : version))}" alt="">
+                </div>
+                <div class="version-item-name">
+                  <h1 data-raw-version="${isExtra === "true" ? customVersion : version}">${formattedVersion}${loader && loader !== 'vanilla' ? ` (${loader})` : ''}</h1>
+                  <h2>${formatDate(dateOpened)}</h2>
+                </div>
+              </div>
+              <button class="button is-info is-outlined start-version-button">
+                <span><i class="fas fa-play"></i></span>
+              </button>
+            </div>
+          `;
+                container.appendChild(versionItem);
+            });
+            return container;
+        }
+
+        const playButton = document.getElementById("play-btn");
+        playButton.addEventListener("click", async () => {
+            const playModal = document.createElement("div");
+            playModal.classList.add("modal", "is-active");
+            playModal.id = "start-version-modal";
+            playModal.innerHTML = `
+          <div class="modal-background"></div>
+          <div class="modal-card modal-animated w60">
+            <section class="modal-card-body start-version-mod-modal-card-body">
+              <div style="display: flex; justify-content: space-between;">
+                <h1 class="h1-start-version-title">${await window.getString('game.startMinecraft')}</h1>
+                <button class="delete" id="close-modal-start-btn" aria-label="close"></button>
+              </div>
+              <br><br>
+              <div class="flexed-start-verion-div">
+                <div class="recent-versions">
+                  <h1 class="h1-start-version-title">${await window.getString('game.recentVersions')}</h1>
+                  ${(await createRecentVersionsList()).outerHTML}
+                </div>
+                <div class="start-version">
+                  <h1 class="h1-start-version-title">${await window.getString('game.selectVersion')}</h1>
+                  <div class="select is-info modded-play-select">
+                    <select id="version-select">
+                      <option value="">${await window.getString('game.chooseVersion')}</option>
+                    </select>
+                  </div>
+                  <br><br>
+                  <div class="start-version-loaders">
+                    ${getLoaderOptionsHTML()}
+                  </div>
+                  <br><br>
+                  <div style="display: flex; justify-content: space-between; align-items: center;" id="footermodaliniciarversion">
+                    <p style="color: #fff; display: none;" id="versionYouAreStartingMain">
+                      ${await window.getString('homePanel.startingVersion') || 'You will start version:'} <span id="versionYouAreStarting"></span>
+                    </p>
+                    <button class="styled-start-version-btn" id="start-game-btn" style="display: none;">
+                      <div class="svg-wrapper-1">
+                        <div class="svg-wrapper">
+                          <i class="fa-solid fa-gamepad"></i>
+                        </div>
+                      </div>
+                      <span>${await window.getString('homePanel.play') || 'Play'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>`;
+
+            document.body.appendChild(playModal);
+
+            playModal.querySelector("#close-modal-start-btn")
+                .addEventListener("click", () => playModal.remove());
+
+            playModal.querySelectorAll('.start-version-button').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const item = btn.closest('.recent-version-item');
+                    const version = item.dataset.version;
+                    const loader = item.dataset.loader || '';
+                    const customVersion = item.dataset.customVersion;
+                    const extra = item.dataset.isExtra === 'true';
+                    const reqJava = item.dataset.requiredJavaVersion;
+
+                    const baseVersion = extra ? customVersion : version.replace(/-?(vanilla|forge|fabric|quilt|neoforge|legacyfabric)$/, "");
+                    const formattedVersion = baseVersion + (loader && loader !== 'vanilla' ? `-${loader}` : "");
+
+                    const uniqueId = extra ? customVersion : `${baseVersion}-${loader || 'vanilla'}`;
+                    let latest3Versions = await getValue("latest3Versions") || [];
+
+                    latest3Versions = latest3Versions.filter(entry => entry.uniqueId !== uniqueId);
+
+                    latest3Versions.unshift({
+                        uniqueId: uniqueId,
+                        version: version,
+                        loader: loader || 'vanilla',
+                        dateOpened: new Date().toISOString(),
+                        isExtra: String(extra),
+                        requiredJavaVersion: reqJava,
+                        customVersion: customVersion
+                    });
+
+                    latest3Versions = latest3Versions.slice(0, 3);
+                    await setValue("latest3Versions", latest3Versions);
+
+                    const launchingModal = document.createElement("div");
+                    launchingModal.classList.add("modal", "is-active");
+                    launchingModal.id = "launching-modal";
+                    launchingModal.innerHTML = `
+                        <div class="modal-background"></div>
+                        <div class="modal-card launching-mc-modal">
+                            <h1>Minecraft está iniciando...</h1>
+                            <div class="launching-mc-modal-status-containers">
+                                <div class="launching-mc-modal-status-container" id="launching-mc-modal-status-container-files">
+                                    <p>Comprobando archivos...</p>
+                                    <i class="fas fa-sync fa-spin"></i>
+                                </div>
+                                <div class="launching-mc-modal-status-container" id="launching-mc-modal-status-container-launcher">
+                                    <p>Iniciando Minecraft...</p>
+                                    <i class="fas fa-sync fa-spin"></i>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+
+                    document.body.appendChild(launchingModal);
+                    playModal.remove();
+
+                    launchingModal.querySelector(".modal-background").addEventListener("click", () => {
+                        launchingModal.classList.remove("is-active");
+                    });
+
+                    thiss.LaunchDownloadedVersion({
+                        version: baseVersion,
+                        loader: loader,
+                        isExtra: extra,
+                        requiredJavaVersion: reqJava,
+                        customVersion: customVersion
+                    });
+                });
+            });
+
+
+            const versionSelect = playModal.querySelector("#version-select");
+            const startGameBtn = playModal.querySelector("#start-game-btn");
+            const versionLabel = playModal.querySelector("#versionYouAreStarting");
+            const versionMainText = playModal.querySelector("#versionYouAreStartingMain");
+            const loadersWrapper = playModal.querySelector(".start-version-loaders");
+            setVersionsInSelect(versionSelect);
+
+            function resetLoaderState() {
+                playModal.querySelectorAll(".loader-option").forEach(opt => {
+                    opt.classList.remove("selected-loader");
+                    opt.style.display = "none";
+                });
+                startGameBtn.style.display = "none";
+                delete startGameBtn.dataset.loader;
+            }
+
+            versionSelect.addEventListener("change", async (e) => {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                const selectedVersion = e.target.value;
+                const isExtra = selectedOption.dataset.isExtra === "true";
+                const requiredJava = selectedOption.dataset.requiredJavaVersion || "";
+                const customVersion = selectedVersion;
+
+                resetLoaderState();
+                versionLabel.textContent = selectedVersion || "";
+                versionMainText.style.display = selectedVersion ? "" : "none";
+                startGameBtn.dataset.version = selectedVersion;
+                startGameBtn.dataset.isExtra = isExtra;
+                startGameBtn.dataset.requiredJavaVersion = requiredJava;
+
+                if (!selectedVersion) return;
+
+                if (isExtra || /optifine/i.test(selectedVersion)) {
+                    loadersWrapper.style.display = "none";
+                    startGameBtn.style.display = "flex";
+                    return;
+                }
+
+                const compatibleLoaders = ["vanilla", ...getCompatibleLoaders(selectedVersion)];
+
+                loadersWrapper.style.display = "flex";
+                compatibleLoaders.forEach(loader => {
+                    const opt = playModal.querySelector(`#playLoaderType-${loader}`);
+                    if (opt) opt.style.display = "flex";
+                });
+            });
+
+            playModal.querySelectorAll(".loader-option").forEach(opt => {
+                opt.addEventListener("click", () => {
+                    const loaderId = opt.dataset.loader;
+                    const loaderTxt = opt.querySelector("h1")?.innerText || "";
+
+                    const selVersion = startGameBtn.dataset.version;
+                    if (!selVersion) return;
+
+                    const isExtraOrOptiFine = startGameBtn.dataset.isExtra === "true" ||
+                        /optifine/i.test(selVersion);
+                    if (isExtraOrOptiFine) return;
+
+                    playModal.querySelectorAll(".loader-option")
+                        .forEach(o => o.classList.toggle("selected-loader", o === opt));
+
+                    startGameBtn.style.display = "flex";
+                    startGameBtn.dataset.loader = loaderId;
+
+                    versionLabel.textContent = `${formatVersion(selVersion)} ${loaderTxt}`;
+                });
+            });
+
+            async function getVersionAssets(version) {
+                const versionFile = `${dataDirectory}/.battly/versions/${version}/${version}.json`;
+                if (!fs.existsSync(versionFile)) return null;
+
+                const versionData = JSON.parse(fs.readFileSync(versionFile, "utf-8"));
+                if (version.toLowerCase().includes("optifine")) return versionData.inheritsFrom;
+                return versionData.assets ? versionData.assets : null;
+            }
+
+            startGameBtn.addEventListener("click", async () => {
+                const { version, loader, isExtra, requiredJavaVersion } = startGameBtn.dataset;
+
+                const formattedBaseVersion = isExtra === "true" ? await getVersionAssets(version) : version;
+                const customVersion = isExtra === "true" ? version : '';
+
+                const uniqueId = isExtra === "true" ? customVersion : `${version}-${loader || 'vanilla'}`;
+                let latest3Versions = await getValue("latest3Versions") || [];
+
+                latest3Versions = latest3Versions.filter(entry => entry.uniqueId !== uniqueId);
+
+                latest3Versions.unshift({
+                    uniqueId: uniqueId,
+                    version: formattedBaseVersion,
+                    loader: loader,
+                    dateOpened: new Date().toISOString(),
+                    isExtra: isExtra,
+                    requiredJavaVersion: requiredJavaVersion,
+                    customVersion: customVersion
+                });
+
+                latest3Versions = latest3Versions.slice(0, 3);
+                await setValue("latest3Versions", latest3Versions);
+
+                thiss.LaunchDownloadedVersion({
+                    version: formattedBaseVersion,
+                    loader: loader,
+                    isExtra: isExtra === "true",
+                    requiredJavaVersion: requiredJavaVersion,
+                    customVersion: version,
+                });
+
+                const launchingModal = document.createElement("div");
+                launchingModal.classList.add("modal", "is-active");
+                launchingModal.id = "launching-modal";
+                launchingModal.innerHTML = `
+                    <div class="modal-background"></div>
+                    <div class="modal-card launching-mc-modal">
+                        <h1>Minecraft está iniciando...</h1>
+                        <div class="launching-mc-modal-status-containers">
+                            <div class="launching-mc-modal-status-container" id="launching-mc-modal-status-container-files">
+                                <p>Comprobando archivos...</p>
+                                <i class="fas fa-sync fa-spin"></i>
+                            </div>
+                            <div class="launching-mc-modal-status-container" id="launching-mc-modal-status-container-launcher">
+                                <p>Iniciando Minecraft...</p>
+                                <i class="fas fa-sync fa-spin"></i>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(launchingModal);
+                launchingModal.querySelector(".modal-background").addEventListener("click", () => {
+                    launchingModal.classList.remove("is-active");
+                });
+
+                const playModal = document.getElementById("start-version-modal");
+                if (playModal) playModal.remove();
+            });
+
+        });
+    }
+
+
+
+
+    startBackgroundSync() {
+        const { syncGoogleDrive } = require('./assets/js/utils/syncGoogleDrive');
+        syncGoogleDrive().then(() => {
+            console.log('Sync completed');
+        }).catch((error) => {
+            console.error('Sync failed:', error);
+        });
+    }
+
+    async InitTutorialAfterNews() {
+        // Check if news have been viewed AND user is logged in before showing tutorial
+        const checkNewsViewedAndUserLogged = async () => {
+            const newsShown = await getValue("news_shown_v3.0");
+            const selectedAccount = await getValue("selected-account");
+
+            // If news haven't been shown yet, wait and check again
+            if (!newsShown || newsShown === "false" || newsShown === null || newsShown === undefined) {
+                setTimeout(checkNewsViewedAndUserLogged, 1000); // Check every second
+                return;
+            }
+
+            // If user is not logged in, wait and check again
+            if (!selectedAccount || selectedAccount === null || selectedAccount === undefined) {
+                setTimeout(checkNewsViewedAndUserLogged, 1000); // Check every second
+                return;
+            }
+
+            // News have been viewed and user is logged in, now show tutorial
+            this.Tutorial();
+        };
+
+        // Start checking
+        checkNewsViewedAndUserLogged();
+    }
+
+    async Tutorial() {
+        const Shepherd = require("./assets/js/utils/shepherd.cjs");
+        const tour = new Shepherd.default.Tour({
+            useModalOverlay: true,
+            defaultStepOptions: {
+                classes: "shadow-md bg-purple-dark",
+                scrollTo: { behavior: "smooth", block: "center" },
+            },
+        });
+
+        tour.addStep({
+            id: "welcome",
+            title: "¡Bienvenido a Battly!",
+            text: "Soy Nivix, tu guía en Battly. Te enseñaré cómo usar Battly en general y aprovechar el 100% de sus funciones.",
+            buttons: [
+                {
+                    text: "¡Vamos!",
+                    action: tour.next,
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: "Menú de inicio",
+            text: "Este es el menú de inicio de Battly. Aquí podrás ver las últimas noticias, tus amigos en línea y acceder a cualquier sección de Battly.",
+            attachTo: {
+                element: ".panel.home",
+                on: "bottom",
+            },
+            buttons: [
+                {
+                    text: await window.getString('tour.next') || "Next",
+                    action: tour.next,
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: await window.getString('tour.newsTitle') || "News",
+            text: await window.getString('tour.newsText') || "Here you can see the latest Battly and Minecraft news. Whenever there's new news, we'll let you know.",
+            attachTo: {
+                element: ".home-news",
+                on: "bottom",
+            },
+            buttons: [
+                {
+                    text: await window.getString('tour.next') || "Next",
+                    action: tour.next,
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: await window.getString('tour.newsTitle') || "News",
+            text: await window.getString('tour.newsToggleText') || "Here you can toggle between Battly news and Minecraft news.",
+            attachTo: {
+                element: "#typeofnewsMain",
+                on: "bottom",
+            },
+            buttons: [
+                {
+                    text: await window.getString('tour.great') || "Great!",
+                    action: tour.next,
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: await window.getString('tour.onlineFriendsTitle') || "Online Friends",
+            text: await window.getString('tour.onlineFriendsText') || "Here you can see your online friends. If you have friends online, you'll see them here.",
+            attachTo: {
+                element: ".main-home-panel-left-online-friends",
+                on: "top-start",
+            },
+            buttons: [
+                {
+                    text: await window.getString('tour.next') || "Next",
+                    action: tour.next,
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: await window.getString('tour.battlyStatusTitle') || "Battly Status",
+            text: await window.getString('tour.battlyStatusText') || "Here you can see Battly's status. If there's any problem with Battly, we'll let you know here.",
+            attachTo: {
+                element: ".main-home-panel-right",
+                on: "left-start",
+            },
+            buttons: [
+                {
+                    text: "Siguiente",
+                    action: tour.next,
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: "Descargar versiones",
+            text: "Presioando aquí podrás descargar las versiones de Minecraft que quieras.",
+            attachTo: {
+                element: "#download-btn",
+                on: "top",
+            },
+            buttons: [
+                {
+                    text: "Siguiente",
+                    action:
+                        () => {
+                            document.getElementById("download-btn").click();
+                            tour.next();
+                        },
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: "Descargar versiones",
+            text: "Para descargar una versión de Minecraft, simplemente selecciona la versión que quieras y presiona el botón de descargar.",
+            attachTo: {
+                element: "#download-panel-right-version",
+                on: "left-start",
+            },
+            buttons: [
+                {
+                    text: "¡Entendido!",
+                    action: () => {
+                        document.querySelector(".modal-close.is-large").click();
+                        tour.next();
+                    },
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: "Abrir versiones",
+            text: "Aquí podrás abrir las versiones de Minecraft que hayas descargado.",
+            attachTo: {
+                element: "#play-btn",
+                on: "top",
+            },
+            buttons: [
+                {
+                    text: "Siguiente",
+                    action:
+                        () => {
+                            document.getElementById("play-btn").click();
+                            tour.next();
+                        },
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: "Versiones recientes",
+            text: "Aquí podrás ver las versiones de Minecraft que has jugado recientemente.",
+            attachTo: {
+                element: ".recent-versions",
+                on: "top",
+            },
+            buttons: [
+                {
+                    text: "Siguiente",
+                    action: tour.next,
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: await window.getString('tour.playVersionsTitle') || "Play Versions",
+            text: await window.getString('tour.playVersionsText') || "To play a Minecraft version, simply select the version you want and press the play button.",
+            attachTo: {
+                element: ".start-version",
+                on: "top",
+            },
+            buttons: [
+                {
+                    text: await window.getString('tour.great') || "Great!",
+                    action: () => {
+                        document.querySelector("#close-modal-start-btn").click();
+                        tour.next();
+                    },
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        tour.addStep({
+            title: "¡Listo!",
+            text: "De momento, ya has aprendido lo básico de Battly. Cuando vayas descubriendo más cosas de Battly, te iré enseñando a usarlas. ¡Diviértete!",
+            buttons: [
+                {
+                    text: "¡Gracias!",
+                    action: tour.next,
+                    classes: "button is-info is-outlined",
+                },
+            ],
+        });
+
+        if (await getValue("baseTutorialCompleted")) return;
+        try {
+            await modal.ask({
+                title: "¿Quieres hacer un tour por Battly?",
+                text: "Te guiaré a través de las características principales de Battly.",
+                showCancelButton: true,
+                confirmButtonText: "Sí, quiero hacer el tour",
+                cancelButtonText: "No, gracias",
+                preConfirm: () => true
+            });
+
+            await tour.start();
+
+            await setValue("baseTutorialCompleted", true);
+
+        } catch (err) {
+            await setValue("baseTutorialCompleted", true);
+            if (err !== "cancelled") {
+                console.error("Error al iniciar el tour:", err);
+                new Alert().ShowAlert({
+                    icon: "error",
+                    title: window.stringLoader.getString("home.error"),
+                    text: window.stringLoader.getString("home.couldNotStartTour")
+                });
+            }
+        }
+
+    }
+
+    async BattlySavesCloud() {
+        const { google } = require("googleapis");
+        const mime = require('mime-types');
+
+        async function saveBackupLog(backupData, drive = null) {
+            const backupHistory = await getValue('backupHistory') || [];
+            backupHistory.unshift(backupData);
+
+            if (backupHistory.length > 50) {
+                backupHistory.splice(50);
+            }
+
+            await setValue('backupHistory', backupHistory);
+
+            if (drive) {
+                await syncBackupHistoryToDrive(drive, backupHistory);
+            }
+        }
+
+        async function getBackupHistory() {
+            return await getValue('backupHistory') || [];
+        }
+
+        async function syncBackupHistoryToDrive(drive, localHistory) {
+            try {
+                const battlyFolder = await findOrCreateFolder(drive, 'root', 'Battly');
+
+                const query = `name='backup-history.json' and '${battlyFolder.id}' in parents`;
+                const res = await drive.files.list({
+                    q: query,
+                    fields: 'files(id, name)'
+                });
+
+                const historyData = JSON.stringify(localHistory, null, 2);
+                const media = {
+                    mimeType: 'application/json',
+                    body: historyData
+                };
+
+                if (res.data.files && res.data.files.length > 0) {
+                    await drive.files.update({
+                        fileId: res.data.files[0].id,
+                        media: media
+                    });
+                } else {
+                    await drive.files.create({
+                        requestBody: {
+                            name: 'backup-history.json',
+                            parents: [battlyFolder.id],
+                            mimeType: 'application/json'
+                        },
+                        media: media,
+                        fields: 'id, name'
+                    });
+                }
+
+                console.log('✅ Historial sincronizado con Google Drive');
+            } catch (error) {
+                console.error('⚠️ Error al sincronizar historial con Drive:', error);
+            }
+        }
+
+        async function downloadBackupHistoryFromDrive(drive) {
+            try {
+                const battlyFolder = await findOrCreateFolder(drive, 'root', 'Battly');
+
+                const query = `name='backup-history.json' and '${battlyFolder.id}' in parents`;
+                const res = await drive.files.list({
+                    q: query,
+                    fields: 'files(id, name, modifiedTime)'
+                });
+
+                if (res.data.files && res.data.files.length > 0) {
+                    const fileId = res.data.files[0].id;
+
+                    const fileRes = await drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    }, { responseType: 'text' });
+
+                    const driveHistory = JSON.parse(fileRes.data);
+                    console.log('✅ Historial descargado desde Google Drive');
+                    return driveHistory;
+                }
+
+                return null;
+            } catch (error) {
+                console.error('⚠️ Error al descargar historial desde Drive:', error);
+                return null;
+            }
+        }
+
+        async function mergeBackupHistories(localHistory, driveHistory) {
+            if (!driveHistory) return localHistory;
+
+            const mergedMap = new Map();
+
+            localHistory.forEach(backup => {
+                mergedMap.set(backup.id, backup);
+            });
+
+            driveHistory.forEach(backup => {
+                if (mergedMap.has(backup.id)) {
+                    const existing = mergedMap.get(backup.id);
+                    if (new Date(backup.timestamp) > new Date(existing.timestamp)) {
+                        mergedMap.set(backup.id, backup);
+                    }
+                } else {
+                    mergedMap.set(backup.id, backup);
+                }
+            });
+
+            const merged = Array.from(mergedMap.values())
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                .slice(0, 50);
+
+            return merged;
+        }
+
+        async function syncBackupHistoryOnStart(drive) {
+            try {
+                const localHistory = await getValue('backupHistory') || [];
+                const driveHistory = await downloadBackupHistoryFromDrive(drive);
+
+                if (driveHistory) {
+                    const merged = await mergeBackupHistories(localHistory, driveHistory);
+                    await setValue('backupHistory', merged);
+
+                    await syncBackupHistoryToDrive(drive, merged);
+
+                    console.log(`✅ Sincronización completada: ${merged.length} registros`);
+                    return merged.length;
+                } else {
+                    console.log('ℹ️ No hay historial en Drive, usando solo local');
+                    return localHistory.length;
+                }
+            } catch (error) {
+                console.error('⚠️ Error en sincronización:', error);
+                return 0;
+            }
+        }
+
+        async function saveTokens(tokens) {
+            await setValue('googleTokens', JSON.stringify(tokens));
+        }
+
+        function openAuthWindow(modalDiv) {
+            const authWindow = window.open('https://battlylauncher.com/google-drive/auth', 'authWindow', 'width=600,height=600');
+
+            window.addEventListener('message', (event) => {
+                if (event.origin !== 'https://battlylauncher.com') return;
+                if (event.data.type === 'google-tokens') {
+                    const tokens = event.data.tokens;
+
+                    fs.writeFileSync(`${dataDirectory}/.battly/battly/launcher/tokens.json`, JSON.stringify(tokens));
+
+                    saveTokens(tokens);
+                    authWindow.close();
+                    modalDiv.remove();
+                }
+            });
+        }
+
+        async function renewAccessTokenIfNeeded(refresh_token) {
+            try {
+                const response = await fetch('https://battlylauncher.com/google-drive/refresh-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ refresh_token }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al refrescar el token');
+                }
+
+                const newTokens = await response.json();
+                saveTokens(newTokens);
+                return newTokens;
+            } catch (error) {
+                console.error('Error al renovar el token de acceso:', error);
+                return null;
+            }
+        }
+
+        const viewHistoryBtn = document.getElementById("view-backup-history-btn");
+        if (viewHistoryBtn) {
+            viewHistoryBtn.addEventListener("click", async () => {
+                const tokens = await getValue("googleTokens");
+                if (tokens) {
+                    try {
+                        const parsedTokens = JSON.parse(tokens);
+                        const auth = new google.auth.OAuth2();
+                        auth.setCredentials(parsedTokens);
+                        const drive = google.drive({ version: 'v3', auth });
+
+                        syncBackupHistoryOnStart(drive).then(() => {
+                            console.log('🔄 Historial sincronizado antes de mostrar');
+                        }).catch(err => {
+                            console.warn('⚠️ No se pudo sincronizar:', err);
+                        });
+                    } catch (error) {
+                        console.warn('⚠️ Error al preparar sincronización:', error);
+                    }
+                }
+
+                await showBackupHistory();
+            });
+        }
+
+        document.getElementById("save-drive").addEventListener("click", async () => {
+            console.log("Iniciando proceso de guardado en Google Drive...");
+            if (!(await getValue("googleTokens"))) {
+                const modalDiv1 = document.createElement("div");
+                modalDiv1.classList.add("modal", "is-active");
+                modalDiv1.innerHTML = `
+        <div class="modal-background"></div>
+        <div class="modal-card modal-animated" style="border-radius: 15px;">
+            <section class="modal-card-body" style="background-color: #101726;">
+                <div class="content" style="text-align: center;">
+                    <img src="assets/images/rnd/1.png">
+                    <h2 style="color: #fff;">¿Quieres guardar tus mundos de Battly en tu cuenta de Google Drive?
+                    </h2>
+                    <p style="color: #fff;">Si guardas tus mundos en tu cuenta de Google Drive, podrás acceder a ellos
+                        desde cualquier
+                        dispositivo. Aparte, si pierdes tus mundos, podrás recuperarlos fácilmente.</p>
+
+                </div>
+            </section>
+            <footer class="modal-card-foot"
+                style="background-color: #0f1623; display: flex; justify-content: flex-end !important;">
+                <button class="button is-info is-outlined">Guardar mundos</button>
+                <button class="button is-warning is-outlined">Ignorar</button>
+            </footer>
+        </div>`;
+
+                document.body.appendChild(modalDiv1);
+
+                modalDiv1.querySelector(".button.is-info.is-outlined").addEventListener("click", async () => {
+                    modalDiv1.querySelector(".content").innerHTML =
+                        `<img src="assets/images/rnd/1.png">
+              <h2 style="color: #fff;">Espera un momento...
+              </h2>
+              <p style="color: #fff;">En unos segundos, se abrirá una ventana para iniciar sesión en tu cuenta de
+                Google, simplemente deberás hacerlo y aceptar los permisos de acceso a los archivos a Battly.
+                <br>
+                  <br>
+                    Tus datos se guardan localmente y no se almacenan en los servidores de Battly; Battly no
+                    accederá a archivos/carpetas que no sean relacionadas a tus mundos.
+                  </p>`
+                        ;
+
+                    modalDiv1.querySelector(".modal-card-foot").querySelectorAll("button").forEach(btn => btn.setAttribute("disabled", "true"));
+                    modalDiv1.querySelector(".modal-card-foot").querySelectorAll("button.is-info.is-outlined").forEach(btn => btn.classList.add("is-loading"));
+
+                    setTimeout(() => {
+                        openAuthWindow(modalDiv1);
+                        modalDiv1.querySelector(".content h2").innerHTML = window.stringLoader.getString("home.continueInLoginWindow");
+                        modalDiv1.querySelector(".content p").innerHTML = window.stringLoader.getString("home.afterLoginInstructions");
+                    }, 7000);
+                });
+
+                modalDiv1.querySelector(".button.is-warning.is-outlined").addEventListener("click", () => {
+                    modalDiv1.remove();
+                });
+            } else {
+                let tokens = JSON.parse(await getValue("googleTokens"));
+                console.log(tokens);
+
+                const auth = new google.auth.OAuth2();
+                auth.setCredentials(tokens);
+
+                if (auth.isTokenExpiring()) {
+                    tokens = await renewAccessTokenIfNeeded(tokens.refresh_token);
+                    if (!tokens) {
+                        openAuthWindow();
+                        return;
+                    }
+                    auth.setCredentials(tokens);
+                }
+
+                const modalDiv = document.createElement("div");
+                modalDiv.classList.add("modal", "is-active");
+                modalDiv.innerHTML = `
+        <div class="modal-background"></div>
+        <div class="modal-card modal-animated" style="border-radius: 15px;">
+          <section class="modal-card-body" style="background-color: #101726;">
+            <div class="content" style="text-align: center;">
+              <h2 style="color: #fff;">Battly está guardando tus mundos, esto puede tardar...</h2>
+              <p style="color: #fff;">Por favor, no cierres la aplicación ni apagues tu dispositivo</p>
+              <div class="uploaded-files">
+                <table id="progress-table" style="background-color: #101726;">
+                </table>
+              </div>
+              <progress id="progress-bar" class="progress is-info"></progress>
+            </div>
+          </section>
+          <footer class="modal-card-foot" style="background-color: #0f1623; display: none; justify-content: flex-end !important;">
+          </footer>
+        </div>
+      `;
+
+                document.body.appendChild(modalDiv);
+
+                const drive = google.drive({ version: 'v3', auth });
+
+                const rootLocalDirectory = `${dataDirectory}/.battly/saves`;
+                const battlyFolder = await findOrCreateFolder(drive, 'root', 'Battly');
+
+                const progressTable = modalDiv.querySelector("#progress-table");
+                const worldFolders = fs.readdirSync(rootLocalDirectory, { withFileTypes: true }).filter(entry => entry.isDirectory());
+
+                const backupData = {
+                    id: Date.now(),
+                    timestamp: new Date().toISOString(),
+                    status: 'in-progress',
+                    worlds: [],
+                    totalFiles: 0,
+                    totalSize: 0,
+                    duration: 0
+                };
+
+                const startTime = Date.now();
+
+                for (const worldFolder of worldFolders) {
+                    let worldRow = document.createElement("tr");
+                    worldRow.innerHTML = `<td style="color: #fff;">${worldFolder.name}</td><td style="color: #3e8ed0;">Creando carpetas...</td>`;
+                    progressTable.appendChild(worldRow);
+
+                    const worldFolderPath = `${rootLocalDirectory}/${worldFolder.name}`;
+                    const driveFolder = await findOrCreateFolder(drive, battlyFolder.id, worldFolder.name);
+
+                    const worldStats = await getWorldStats(worldFolderPath);
+
+                    await createSubfoldersRecursive(drive, driveFolder.id, worldFolderPath);
+
+                    worldRow.querySelector("td:nth-child(2)").innerText = "Subiendo archivos del mundo...";
+                    const uploadResults = await uploadFilesRecursive(drive, driveFolder.id, worldFolderPath);
+
+                    worldRow.querySelector("td:nth-child(2)").style.color = "#48c774";
+                    worldRow.querySelector("td:nth-child(2)").innerText = "Mundo subido";
+
+                    backupData.worlds.push({
+                        name: worldFolder.name,
+                        files: worldStats.fileCount,
+                        size: worldStats.totalSize,
+                        uploadedFiles: uploadResults.uploadedFiles,
+                        updatedFiles: uploadResults.updatedFiles,
+                        folderId: driveFolder.id
+                    });
+
+                    backupData.totalFiles += worldStats.fileCount;
+                    backupData.totalSize += worldStats.totalSize;
+                }
+
+                backupData.duration = Date.now() - startTime;
+                backupData.status = 'completed';
+
+                await saveBackupLog(backupData, drive);
+
+                modalDiv.querySelector("#progress-bar").style.display = "none";
+                modalDiv.querySelector(".content h2").innerText = "Mundos subidos correctamente";
+                modalDiv.querySelector(".content p").innerHTML = `
+                    Tus mundos se han subido correctamente a tu cuenta de Google Drive<br>
+                    <small style="color: #aaa;">
+                        ${backupData.worlds.length} mundo(s) • ${backupData.totalFiles} archivo(s) • 
+                        ${(backupData.totalSize / 1024 / 1024).toFixed(2)} MB • 
+                        ${(backupData.duration / 1000).toFixed(1)}s
+                    </small>
+                `;
+                modalDiv.querySelector(".modal-card-foot").innerHTML = `
+                    <button class="button is-info is-outlined" id="view-backup-history-btn">Ver historial</button>
+                    <button class="button is-success is-outlined">Aceptar</button>
+                `;
+                modalDiv.querySelector(".modal-card-foot").style.display = "flex";
+
+                modalDiv.querySelector("#view-backup-history-btn").addEventListener("click", async () => {
+                    modalDiv.remove();
+                    await showBackupHistory();
+                });
+
+                modalDiv.querySelector(".button.is-success.is-outlined").addEventListener("click", () => {
+                    modalDiv.remove();
+                });
+            }
+        });
+
+        async function createSubfoldersRecursive(drive, parentFolderId, localFolderPath) {
+            const folderContents = fs.readdirSync(localFolderPath, { withFileTypes: true });
+
+            for (const entry of folderContents) {
+                const entryPath = `${localFolderPath}/${entry.name}`;
+
+                if (entry.isDirectory()) {
+                    const folder = await findOrCreateFolder(drive, parentFolderId, entry.name);
+                    await createSubfoldersRecursive(drive, folder.id, entryPath);
+                }
+            }
+        }
+
+        async function downloadWorldsFromDrive(drive, localDirectory) {
+            const battlyFolder = await findOrCreateFolder(drive, 'root', 'Battly');
+
+            const files = await drive.files.list({
+                q: `'${battlyFolder.id}' in parents`,
+                fields: 'files(id, name, mimeType)'
+            });
+
+            for (const file of files.data.files) {
+                const filePath = `${localDirectory}/${file.name}`;
+
+                if (file.mimeType === 'application/vnd.google-apps.folder') {
+                    if (!fs.existsSync(filePath)) {
+                        fs.mkdirSync(filePath, { recursive: true });
+                    }
+                    await downloadWorldsFromDrive(drive, filePath);
+                } else {
+                    const dest = fs.createWriteStream(filePath);
+                    await drive.files.get({
+                        fileId: file.id,
+                        alt: 'media'
+                    }, { responseType: 'stream' }, (err, res) => {
+                        if (err) throw err;
+                        res.data.pipe(dest);
+                    });
+                }
+            }
+        }
+
+        async function uploadFilesRecursive(drive, parentFolderId, localFolderPath) {
+            const folderContents = fs.readdirSync(localFolderPath, { withFileTypes: true });
+
+            let uploadedFiles = 0;
+            let updatedFiles = 0;
+
+            const uploadPromises = folderContents.map(async (entry) => {
+                const entryPath = `${localFolderPath}/${entry.name}`;
+
+                if (entry.isFile()) {
+                    const query = `name='${entry.name}' and '${parentFolderId}' in parents`;
+                    const res = await drive.files.list({
+                        q: query,
+                        fields: 'files(id, name)'
+                    });
+
+                    if (res.data.files && res.data.files.length > 0) {
+                        await drive.files.update({
+                            fileId: res.data.files[0].id,
+                            media: {
+                                mimeType: mime.lookup(entryPath) || 'application/octet-stream',
+                                body: fs.readFileSync(entryPath)
+                            }
+                        });
+                        updatedFiles++;
+                    } else {
+                        const res = await drive.files.create({
+                            requestBody: {
+                                name: entry.name,
+                                parents: [parentFolderId]
+                            },
+                            media: {
+                                mimeType: mime.lookup(entryPath) || 'application/octet-stream',
+                                body: fs.readFileSync(entryPath)
+                            },
+                            fields: 'id, name'
+                        });
+
+                        await drive.files.update({
+                            fileId: res.data.id ?? res.data.files[0].id,
+                            media: {
+                                mimeType: mime.lookup(entryPath) || 'application/octet-stream',
+                                body: fs.readFileSync(entryPath)
+                            },
+                            fields: 'id, name'
+                        });
+                        uploadedFiles++;
+                    }
+                } else if (entry.isDirectory()) {
+                    const folder = await findOrCreateFolder(drive, parentFolderId, entry.name);
+                    const subResults = await uploadFilesRecursive(drive, folder.id, entryPath);
+                    uploadedFiles += subResults.uploadedFiles;
+                    updatedFiles += subResults.updatedFiles;
+                }
+            });
+
+            await Promise.all(uploadPromises);
+            return { uploadedFiles, updatedFiles };
+        }
+
+        async function getWorldStats(worldPath) {
+            let fileCount = 0;
+            let totalSize = 0;
+
+            function scanDirectory(dirPath) {
+                const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+                for (const entry of entries) {
+                    const entryPath = `${dirPath}/${entry.name}`;
+
+                    if (entry.isFile()) {
+                        fileCount++;
+                        try {
+                            const stats = fs.statSync(entryPath);
+                            totalSize += stats.size;
+                        } catch (err) {
+                            console.error(`Error al obtener stats de ${entryPath}:`, err);
+                        }
+                    } else if (entry.isDirectory()) {
+                        scanDirectory(entryPath);
+                    }
+                }
+            }
+
+            scanDirectory(worldPath);
+            return { fileCount, totalSize };
+        }
+
+        async function showBackupHistory() {
+            const history = await getBackupHistory();
+
+            const historyModal = document.createElement("div");
+            historyModal.classList.add("modal", "is-active");
+            historyModal.innerHTML = `
+                <div class="modal-background"></div>
+                <div class="modal-card modal-animated" style="border-radius: 15px; max-width: 900px;">
+                    <header class="modal-card-head" style="background-color: #101726;">
+                        <p class="modal-card-title" style="color: #fff;">
+                            <i class="fas fa-history"></i> Historial de Copias de Seguridad
+                        </p>
+                        <button class="delete" aria-label="close" id="close-history-modal"></button>
+                    </header>
+                    <section class="modal-card-body" style="background-color: #101726; max-height: 600px; overflow-y: auto;">
+                        <div id="backup-history-content">
+                            ${history.length === 0 ?
+                    '<p style="color: #aaa; text-align: center; padding: 40px;">No hay copias de seguridad registradas</p>' :
+                    generateHistoryHTML(history)
+                }
+                        </div>
+                    </section>
+                    <footer class="modal-card-foot" style="background-color: #0f1623; justify-content: space-between;">
+                        <div>
+                            <button class="button is-danger is-outlined" id="clear-history-btn">
+                                <i class="fas fa-trash"></i> Limpiar historial
+                            </button>
+                            <button class="button is-warning is-outlined" id="sync-history-btn">
+                                <i class="fas fa-sync-alt"></i> Sincronizar
+                            </button>
+                        </div>
+                        <button class="button is-info is-outlined" id="close-history-btn">Cerrar</button>
+                    </footer>
+                </div>
+            `;
+
+            document.body.appendChild(historyModal);
+
+            historyModal.querySelector("#close-history-modal").addEventListener("click", () => {
+                historyModal.remove();
+            });
+
+            historyModal.querySelector("#close-history-btn").addEventListener("click", () => {
+                historyModal.remove();
+            });
+
+            historyModal.querySelector("#clear-history-btn").addEventListener("click", async () => {
+                try {
+                    await modal.ask({
+                        title: '¿Limpiar historial?',
+                        text: '¿Estás seguro de que quieres eliminar todo el historial de copias de seguridad? Esta acción no se puede deshacer.',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, limpiar',
+                        cancelButtonText: 'Cancelar',
+                        preConfirm: () => true
+                    });
+
+                    await setValue('backupHistory', []);
+                    historyModal.querySelector("#backup-history-content").innerHTML =
+                        '<p style="color: #aaa; text-align: center; padding: 40px;">No hay copias de seguridad registradas</p>';
+
+                    new Alert().ShowAlert({
+                        icon: "success",
+                        title: "Historial limpiado",
+                        text: "El historial de copias de seguridad se ha eliminado correctamente"
+                    });
+                } catch (err) {
+                }
+            });
+
+            historyModal.querySelector("#sync-history-btn").addEventListener("click", async () => {
+                const syncBtn = historyModal.querySelector("#sync-history-btn");
+                const originalHTML = syncBtn.innerHTML;
+
+                try {
+                    syncBtn.innerHTML = `<i class="fas fa-sync-alt fa-spin"></i> ${window.stringLoader.getString("home.syncing")}`;
+                    syncBtn.disabled = true;
+
+                    const tokens = await getValue("googleTokens");
+                    if (!tokens) {
+                        new Alert().ShowAlert({
+                            icon: "warning",
+                            title: window.stringLoader.getString("home.notAuthenticated"),
+                            text: window.stringLoader.getString("home.mustLoginGoogleDrive")
+                        });
+                        return;
+                    }
+
+                    const parsedTokens = JSON.parse(tokens);
+                    const auth = new google.auth.OAuth2();
+                    auth.setCredentials(parsedTokens);
+                    const drive = google.drive({ version: 'v3', auth });
+
+                    const syncedCount = await syncBackupHistoryOnStart(drive);
+
+                    const updatedHistory = await getBackupHistory();
+                    historyModal.querySelector("#backup-history-content").innerHTML =
+                        updatedHistory.length === 0 ?
+                            '<p style="color: #aaa; text-align: center; padding: 40px;">No hay copias de seguridad registradas</p>' :
+                            generateHistoryHTML(updatedHistory);
+
+                    new Alert().ShowAlert({
+                        icon: "success",
+                        title: "Sincronizado",
+                        text: `Se sincronizaron ${syncedCount} registro(s) desde Google Drive`
+                    });
+                } catch (error) {
+                    console.error('Error en sincronización:', error);
+                    new Alert().ShowAlert({
+                        icon: "error",
+                        title: "Error",
+                        text: "No se pudo sincronizar con Google Drive"
+                    });
+                } finally {
+                    syncBtn.innerHTML = originalHTML;
+                    syncBtn.disabled = false;
+                }
+            });
+        }
+
+        function generateHistoryHTML(history) {
+            return history.map((backup, index) => {
+                const date = new Date(backup.timestamp);
+                const formattedDate = date.toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const statusColor = backup.status === 'completed' ? '#48c774' : '#f14668';
+                const statusText = backup.status === 'completed' ? 'Completada' : 'Fallida';
+
+                return `
+                    <div class="box" style="background-color: #0f1623; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <h3 style="color: #fff; margin-bottom: 10px;">
+                                    <i class="fas fa-cloud-upload-alt"></i> 
+                                    Copia de Seguridad #${history.length - index}
+                                </h3>
+                                <p style="color: #aaa; font-size: 0.9em; margin-bottom: 15px;">
+                                    <i class="far fa-clock"></i> ${formattedDate}
+                                </p>
+                                
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px;">
+                                    <div style="background-color: #101726; padding: 10px; border-radius: 5px;">
+                                        <p style="color: #aaa; font-size: 0.8em;">Mundos</p>
+                                        <p style="color: #fff; font-size: 1.2em; font-weight: bold;">
+                                            <i class="fas fa-globe"></i> ${backup.worlds.length}
+                                        </p>
+                                    </div>
+                                    <div style="background-color: #101726; padding: 10px; border-radius: 5px;">
+                                        <p style="color: #aaa; font-size: 0.8em;">Archivos</p>
+                                        <p style="color: #fff; font-size: 1.2em; font-weight: bold;">
+                                            <i class="fas fa-file"></i> ${backup.totalFiles}
+                                        </p>
+                                    </div>
+                                    <div style="background-color: #101726; padding: 10px; border-radius: 5px;">
+                                        <p style="color: #aaa; font-size: 0.8em;">Tamaño</p>
+                                        <p style="color: #fff; font-size: 1.2em; font-weight: bold;">
+                                            <i class="fas fa-hdd"></i> ${(backup.totalSize / 1024 / 1024).toFixed(2)} MB
+                                        </p>
+                                    </div>
+                                    <div style="background-color: #101726; padding: 10px; border-radius: 5px;">
+                                        <p style="color: #aaa; font-size: 0.8em;">Duración</p>
+                                        <p style="color: #fff; font-size: 1.2em; font-weight: bold;">
+                                            <i class="fas fa-stopwatch"></i> ${(backup.duration / 1000).toFixed(1)}s
+                                        </p>
+                                    </div>
+                                </div>
+
+                                ${backup.worlds.length > 0 ? `
+                                    <details style="margin-top: 10px;">
+                                        <summary style="color: #3e8ed0; cursor: pointer; user-select: none;">
+                                            <i class="fas fa-chevron-down"></i> Ver detalles de mundos
+                                        </summary>
+                                        <div style="margin-top: 10px; padding-left: 20px;">
+                                            ${backup.worlds.map(world => `
+                                                <div style="background-color: #101726; padding: 8px; margin-bottom: 5px; border-radius: 3px;">
+                                                    <p style="color: #fff; font-weight: bold;">${world.name}</p>
+                                                    <p style="color: #aaa; font-size: 0.85em;">
+                                                        ${world.files} archivos • 
+                                                        ${(world.size / 1024 / 1024).toFixed(2)} MB • 
+                                                        ${world.uploadedFiles} nuevos • 
+                                                        ${world.updatedFiles} actualizados
+                                                    </p>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </details>
+                                ` : ''}
+                            </div>
+                            
+                            <div style="text-align: right;">
+                                <span style="background-color: ${statusColor}; color: #fff; padding: 5px 10px; border-radius: 5px; font-size: 0.85em;">
+                                    ${statusText}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function findOrCreateFolder(drive, parentFolderId, folderName) {
+            const query = `name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder'`;
+
+            const res = await drive.files.list({
+                q: query,
+                fields: 'files(id, name)'
+            });
+
+            if (res.data.files && res.data.files.length > 0) {
+                return res.data.files[0];
+            }
+
+            const folder = await drive.files.create({
+                requestBody: {
+                    name: folderName,
+                    mimeType: 'application/vnd.google-apps.folder',
+                    parents: [parentFolderId]
+                },
+                fields: 'id, name'
+            });
+
+            return folder.data;
+        }
+    }
+
+    async syncBackupHistoryOnInit() {
+        try {
+            const tokens = await getValue("googleTokens");
+            if (!tokens) {
+                console.log('ℹ️ No hay tokens de Google Drive, saltando sincronización');
+                return;
+            }
+
+            const { google } = require("googleapis");
+            const parsedTokens = JSON.parse(tokens);
+            const auth = new google.auth.OAuth2();
+            auth.setCredentials(parsedTokens);
+
+            if (auth.isTokenExpiring()) {
+                console.log('⚠️ Token expirado, se requiere re-autenticación');
+                return;
+            }
+
+            const drive = google.drive({ version: 'v3', auth });
+
+            console.log('🔄 Sincronizando historial de copias de seguridad...');
+
+            const localHistory = await getValue('backupHistory') || [];
+            console.log(`📱 Historial local: ${localHistory.length} registro(s)`);
+
+            const driveHistory = await this.downloadBackupHistoryFromDrive(drive);
+
+            if (driveHistory && driveHistory.length > 0) {
+                console.log(`☁️ Historial en Drive: ${driveHistory.length} registro(s)`);
+
+                const merged = await this.mergeBackupHistories(localHistory, driveHistory);
+                console.log(`🔀 Historial fusionado: ${merged.length} registro(s)`);
+
+                await setValue('backupHistory', merged);
+
+                await this.syncBackupHistoryToDrive(drive, merged);
+
+                console.log(`✅ Sincronización completada: ${merged.length} registro(s) disponibles`);
+            } else {
+                console.log('ℹ️ No hay historial en Drive o es la primera sincronización');
+
+                if (localHistory.length > 0) {
+                    await this.syncBackupHistoryToDrive(drive, localHistory);
+                    console.log(`⬆️ Historial local subido a Drive: ${localHistory.length} registro(s)`);
+                }
+            }
+        } catch (error) {
+            console.error('⚠️ Error en sincronización automática:', error);
+        }
+    }
+
+    async downloadBackupHistoryFromDrive(drive) {
+        try {
+            const battlyFolder = await this.findOrCreateFolderForSync(drive, 'root', 'Battly');
+
+            const query = `name='backup-history.json' and '${battlyFolder.id}' in parents`;
+            const res = await drive.files.list({
+                q: query,
+                fields: 'files(id, name, modifiedTime)'
+            });
+
+            if (res.data.files && res.data.files.length > 0) {
+                const fileId = res.data.files[0].id;
+
+                const fileRes = await drive.files.get({
+                    fileId: fileId,
+                    alt: 'media'
+                }, { responseType: 'text' });
+
+                const driveHistory = JSON.parse(fileRes.data);
+                return driveHistory;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('⚠️ Error al descargar historial desde Drive:', error);
+            return null;
+        }
+    }
+
+    async syncBackupHistoryToDrive(drive, localHistory) {
+        try {
+            const battlyFolder = await this.findOrCreateFolderForSync(drive, 'root', 'Battly');
+
+            const query = `name='backup-history.json' and '${battlyFolder.id}' in parents`;
+            const res = await drive.files.list({
+                q: query,
+                fields: 'files(id, name)'
+            });
+
+            const historyData = JSON.stringify(localHistory, null, 2);
+            const media = {
+                mimeType: 'application/json',
+                body: historyData
+            };
+
+            if (res.data.files && res.data.files.length > 0) {
+                await drive.files.update({
+                    fileId: res.data.files[0].id,
+                    media: media
+                });
+            } else {
+                await drive.files.create({
+                    requestBody: {
+                        name: 'backup-history.json',
+                        parents: [battlyFolder.id],
+                        mimeType: 'application/json'
+                    },
+                    media: media,
+                    fields: 'id, name'
+                });
+            }
+        } catch (error) {
+            console.error('⚠️ Error al sincronizar historial con Drive:', error);
+        }
+    }
+
+    async mergeBackupHistories(localHistory, driveHistory) {
+        if (!driveHistory) return localHistory;
+
+        const mergedMap = new Map();
+
+        localHistory.forEach(backup => {
+            mergedMap.set(backup.id, backup);
+        });
+
+        driveHistory.forEach(backup => {
+            if (mergedMap.has(backup.id)) {
+                const existing = mergedMap.get(backup.id);
+                if (new Date(backup.timestamp) > new Date(existing.timestamp)) {
+                    mergedMap.set(backup.id, backup);
+                }
+            } else {
+                mergedMap.set(backup.id, backup);
+            }
+        });
+
+        const merged = Array.from(mergedMap.values())
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            .slice(0, 50);
+
+        return merged;
+    }
+
+    async findOrCreateFolderForSync(drive, parentFolderId, folderName) {
+        const query = `name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder'`;
+
+        const res = await drive.files.list({
+            q: query,
+            fields: 'files(id, name)'
+        });
+
+        if (res.data.files && res.data.files.length > 0) {
+            return res.data.files[0];
+        }
+
+        const folder = await drive.files.create({
+            requestBody: {
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [parentFolderId]
+            },
+            fields: 'id, name'
+        });
+
+        return folder.data;
+    }
+
+    async startAutoBackupOnGameClose() {
+        try {
+            ipcRenderer.send('sync-started');
+            console.log('🔄 Sincronización iniciada - Battly no se cerrará hasta completar');
+
+            const tokens = await getValue("googleTokens");
+            if (!tokens) {
+                console.log('⚠️ No hay tokens de Google Drive, cancelando sincronización automática');
+                ipcRenderer.send('sync-finished');
+                return;
+            }
+
+            const { google } = require("googleapis");
+            const mime = require('mime-types');
+
+            const parsedTokens = JSON.parse(tokens);
+            const auth = new google.auth.OAuth2();
+            auth.setCredentials(parsedTokens);
+
+            if (auth.isTokenExpiring()) {
+                console.log('⚠️ Token expirado, cancelando sincronización automática');
+                ipcRenderer.send('sync-finished');
+                return;
+            }
+
+            const drive = google.drive({ version: 'v3', auth });
+
+            this.showSystemNotification('Battly Launcher', 'Iniciando copia de seguridad automática...');
+
+            console.log('📦 Comenzando copia de seguridad automática...');
+
+            const rootLocalDirectory = `${dataDirectory}/.battly/saves`;
+
+            if (!fs.existsSync(rootLocalDirectory)) {
+                console.log('ℹ️ No hay mundos para respaldar');
+                return;
+            }
+
+            const battlyFolder = await this.findOrCreateFolderForSync(drive, 'root', 'Battly');
+            const worldFolders = fs.readdirSync(rootLocalDirectory, { withFileTypes: true })
+                .filter(entry => entry.isDirectory());
+
+            if (worldFolders.length === 0) {
+                console.log('ℹ️ No hay mundos para respaldar');
+                return;
+            }
+
+            const backupData = {
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                status: 'in-progress',
+                worlds: [],
+                totalFiles: 0,
+                totalSize: 0,
+                duration: 0,
+                autoBackup: true
+            };
+
+            const startTime = Date.now();
+
+            for (const worldFolder of worldFolders) {
+                console.log(`📁 Respaldando mundo: ${worldFolder.name}`);
+
+                const worldFolderPath = `${rootLocalDirectory}/${worldFolder.name}`;
+                const driveFolder = await this.findOrCreateFolderForSync(drive, battlyFolder.id, worldFolder.name);
+
+                const worldStats = await this.getWorldStatsForAutoBackup(worldFolderPath);
+
+                await this.createSubfoldersRecursiveForAutoBackup(drive, driveFolder.id, worldFolderPath);
+                const uploadResults = await this.uploadFilesRecursiveForAutoBackup(drive, driveFolder.id, worldFolderPath);
+
+                backupData.worlds.push({
+                    name: worldFolder.name,
+                    files: worldStats.fileCount,
+                    size: worldStats.totalSize,
+                    uploadedFiles: uploadResults.uploadedFiles,
+                    updatedFiles: uploadResults.updatedFiles,
+                    folderId: driveFolder.id
+                });
+
+                backupData.totalFiles += worldStats.fileCount;
+                backupData.totalSize += worldStats.totalSize;
+            }
+
+            backupData.duration = Date.now() - startTime;
+            backupData.status = 'completed';
+
+            await this.saveBackupLogForAutoBackup(backupData, drive);
+
+            console.log(`✅ Copia de seguridad automática completada en ${(backupData.duration / 1000).toFixed(1)}s`);
+
+            const { remote } = require('electron');
+            const mainWindow = remote.getCurrentWindow();
+            const wasHidden = !mainWindow.isVisible();
+
+            if (wasHidden) {
+                this.showSystemNotification(
+                    'Copia de Seguridad Completada',
+                    `${backupData.worlds.length} mundo(s) respaldado(s) • Cerrando Battly...`
+                );
+            } else {
+                this.showSystemNotification(
+                    'Copia de Seguridad Completada',
+                    `${backupData.worlds.length} mundo(s) respaldado(s) • ${(backupData.totalSize / 1024 / 1024).toFixed(2)} MB`
+                );
+            }
+
+            ipcRenderer.send('sync-finished');
+
+            if (wasHidden) {
+                setTimeout(() => {
+                    console.log('👋 Cerrando Battly tras completar sincronización...');
+                    process.exit(0);
+                }, 2000);
+            }
+
+        } catch (error) {
+            console.error('❌ Error en copia de seguridad automática:', error);
+            this.showSystemNotification('Error en Copia de Seguridad', 'No se pudo completar la copia automática');
+
+            ipcRenderer.send('sync-finished');
+        }
+    }
+
+    showSystemNotification(title, message) {
+        try {
+            const { ipcRenderer } = require('electron');
+            ipcRenderer.send('show-notification', { title, message });
+        } catch (error) {
+            console.error('Error al mostrar notificación:', error);
+        }
+    }
+
+    async getWorldStatsForAutoBackup(worldPath) {
+        let fileCount = 0;
+        let totalSize = 0;
+
+        function scanDirectory(dirPath) {
+            const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const entryPath = `${dirPath}/${entry.name}`;
+
+                if (entry.isFile()) {
+                    fileCount++;
+                    try {
+                        const stats = fs.statSync(entryPath);
+                        totalSize += stats.size;
+                    } catch (err) {
+                        console.error(`Error al obtener stats de ${entryPath}:`, err);
+                    }
+                } else if (entry.isDirectory()) {
+                    scanDirectory(entryPath);
+                }
+            }
+        }
+
+        scanDirectory(worldPath);
+        return { fileCount, totalSize };
+    }
+
+    async createSubfoldersRecursiveForAutoBackup(drive, parentFolderId, localFolderPath) {
+        const folderContents = fs.readdirSync(localFolderPath, { withFileTypes: true });
+
+        for (const entry of folderContents) {
+            const entryPath = `${localFolderPath}/${entry.name}`;
+
+            if (entry.isDirectory()) {
+                const folder = await this.findOrCreateFolderForSync(drive, parentFolderId, entry.name);
+                await this.createSubfoldersRecursiveForAutoBackup(drive, folder.id, entryPath);
+            }
+        }
+    }
+
+    async uploadFilesRecursiveForAutoBackup(drive, parentFolderId, localFolderPath) {
+        const { mime } = require('mime-types');
+        const folderContents = fs.readdirSync(localFolderPath, { withFileTypes: true });
+
+        let uploadedFiles = 0;
+        let updatedFiles = 0;
+
+        const uploadPromises = folderContents.map(async (entry) => {
+            const entryPath = `${localFolderPath}/${entry.name}`;
+
+            if (entry.isFile()) {
+                const query = `name='${entry.name}' and '${parentFolderId}' in parents`;
+                const res = await drive.files.list({
+                    q: query,
+                    fields: 'files(id, name)'
+                });
+
+                const mimeType = require('mime-types').lookup(entryPath) || 'application/octet-stream';
+
+                if (res.data.files && res.data.files.length > 0) {
+                    await drive.files.update({
+                        fileId: res.data.files[0].id,
+                        media: {
+                            mimeType: mimeType,
+                            body: fs.readFileSync(entryPath)
+                        }
+                    });
+                    updatedFiles++;
+                } else {
+                    await drive.files.create({
+                        requestBody: {
+                            name: entry.name,
+                            parents: [parentFolderId]
+                        },
+                        media: {
+                            mimeType: mimeType,
+                            body: fs.readFileSync(entryPath)
+                        },
+                        fields: 'id, name'
+                    });
+                    uploadedFiles++;
+                }
+            } else if (entry.isDirectory()) {
+                const folder = await this.findOrCreateFolderForSync(drive, parentFolderId, entry.name);
+                const subResults = await this.uploadFilesRecursiveForAutoBackup(drive, folder.id, entryPath);
+                uploadedFiles += subResults.uploadedFiles;
+                updatedFiles += subResults.updatedFiles;
+            }
+        });
+
+        await Promise.all(uploadPromises);
+        return { uploadedFiles, updatedFiles };
+    }
+
+    async saveBackupLogForAutoBackup(backupData, drive) {
+        const backupHistory = await getValue('backupHistory') || [];
+        backupHistory.unshift(backupData);
+
+        if (backupHistory.length > 50) {
+            backupHistory.splice(50);
+        }
+
+        await setValue('backupHistory', backupHistory);
+
+        if (drive) {
+            await this.syncBackupHistoryToDrive(drive, backupHistory);
+        }
+    }
+
+    async trackPlayedWorlds() {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? `${process.env.HOME}/Library/Application Support` : process.env.HOME);
+            const savesPath = `${dataDirectory}/.battly/saves`;
+
+            if (!fs.existsSync(savesPath)) {
+                return;
+            }
+
+            const worlds = fs.readdirSync(savesPath, { withFileTypes: true })
+                .filter(entry => entry.isDirectory())
+                .map(dir => {
+                    const worldPath = path.join(savesPath, dir.name);
+                    const levelDatPath = path.join(worldPath, 'level.dat');
+
+                    let lastPlayed = 0;
+                    if (fs.existsSync(levelDatPath)) {
+                        const stats = fs.statSync(levelDatPath);
+                        lastPlayed = stats.mtime.getTime();
+                    }
+
+                    return {
+                        name: dir.name,
+                        lastPlayed: lastPlayed
+                    };
+                });
+
+            worlds.sort((a, b) => b.lastPlayed - a.lastPlayed);
+
+            const recentWorlds = worlds.slice(0, 10);
+            await setValue('recentWorlds', recentWorlds);
+
+            console.log('🎮 Mundos recientes actualizados:', recentWorlds.length);
+        } catch (error) {
+            console.error('Error al rastrear mundos jugados:', error);
+        }
+    }
+
+    async addEventListenerButtonsSound() {
+    }
+
+    async ContextMenuSettings() {
+        const contextMenu = document.querySelector(".wrapper-contextmenu"),
+            shareMenu = contextMenu.querySelector(".share-menu-contextmenu");
+
+        window.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            let x = e.offsetX,
+                y = e.offsetY,
+                winWidth = window.innerWidth,
+                winHeight = window.innerHeight,
+                cmWidth = contextMenu.offsetWidth,
+                cmHeight = contextMenu.offsetHeight;
+
+            if (x > winWidth - cmWidth - shareMenu.offsetWidth) {
+                shareMenu.style.left = "-150px";
+            } else {
+                shareMenu.style.left = "";
+                shareMenu.style.right = "-200px";
+            }
+
+            x = x > winWidth - cmWidth ? winWidth - cmWidth - 5 : x;
+            y = y > winHeight - cmHeight ? winHeight - cmHeight - 5 : y;
+
+            contextMenu.style.left = `${x}px`;
+            contextMenu.style.top = `${y}px`;
+            contextMenu.style.visibility = "visible";
+        });
+
+        document.addEventListener(
+            "click",
+            () => (contextMenu.style.visibility = "hidden")
+        );
     }
 
     async Ads() {
-        let ads = document.getElementById("ads");
-        ads.style.backgroundImage = `url(${this.BattlyConfig.ads})`;
+        fetch("https://api.battlylauncher.com/ads/get").then(async (res) => {
+            let adsData = await res.json();
+
+            let ads = document.getElementById("ads");
+            ads.src = adsData.image;
+            ads.addEventListener("click", () => {
+                shell.openExternal(adsData.link);
+            });
+        });
     }
 
     async Solicitudes() {
@@ -241,1281 +2405,57 @@ class Home {
             changePanel("friends");
         });
 
-        document.getElementById("friends-volver-btn").addEventListener("click", () => {
-            document.querySelector(".preload-content").style.display = "none";
-            changePanel("home");
-        });
+        document
+            .getElementById("friends-volver-btn")
+            .addEventListener("click", () => {
+                changePanel("home");
+            });
     }
 
-
     async SetStatus() {
-        let selectedAccount = (await this.database.get("1234", "accounts-selected")).value;
-        let accounts = await this.database.getAll("accounts");
-
-        accounts.forEach((account) => {
-            if (account.value.uuid === selectedAccount.selected) {
-                this.UpdateStatus(account.value.name, "online", langs.in_the_menu);
-            }
-        })
+        let account = await this.database?.getSelectedAccount();
+        console.log(`Setting status for account: ${account.name}`);
+        this.UpdateStatus(account.name, "online", await window.getString('home.inTheMenu') || 'en el menú');
     }
 
     async UpdateStatus(username, status, details) {
         console.log(`🧩 ${username} > ${status} > ${details}`);
-        
-        let uuid = (await this.database.get("1234", "accounts-selected")).value;
-        let account = (await this.database.get(uuid.selected, "accounts")).value;
-        
-        if (account.type === "battly") {
-            if (!account.password || account.password === "" || account.password === undefined || account.password === null) {
-                Toast.fire({
-                    icon: 'error',
-                    title: langs.password_not_set,
+
+        let account = await this.database?.getSelectedAccount();
+        console.log(account);
+
+        if (account?.type === "battly") {
+            console.log("Updating Battly status...");
+            if (!account.token) {
+                new Alert().ShowAlert({
+                    icon: "error",
+                    title: await window.getString('home.passwordNotSet') || 'No has establecido contraseña',
                 });
 
-                this.database.delete(uuid.selected, "accounts");
+                this.database.delete(uuid, "accounts");
                 return;
-            } else {
-                ipcRenderer.send('updateStatus', {
-                    status: status,
-                    details: details,
-                    username: username,
-                    password: account.password,
-                })
             }
+
+            ipcRenderer.send("updateStatus", {
+                username,
+                status,
+                details,
+                token: account.token,
+            });
         }
     }
-    
-    async Instancias() {
-        let instanciasBtn = document.getElementById("instancias-btn");
 
-        instanciasBtn.addEventListener("click", async () => {
-            // Crear el elemento modal
-            const modal = document.createElement('div');
-            modal.classList.add('modal', 'is-active');
-            modal.style.zIndex = '2';
 
-            // Crear el fondo del modal
-            const modalBackground = document.createElement('div');
-            modalBackground.classList.add('modal-background');
+    async Registros() {
+        let logs = document.getElementById("battly-logs").value;
 
-            // Crear el div del contenido del modal
-            const modalCard = document.createElement('div');
-            modalCard.classList.add('modal-card');
-            modalCard.style.backgroundColor = '#444444';
+        fs.mkdirSync(`${dataDirectory} /.battly / temp`, { recursive: true });
+        fs.writeFileSync(`${dataDirectory} /.battly / temp / logs.txt`, logs);
+        shell.openPath(`${dataDirectory} /.battly / temp / logs.txt`);
 
-            // Crear el encabezado del modal
-            const modalHeader = document.createElement('header');
-            modalHeader.classList.add('modal-card-head');
-            modalHeader.style.backgroundColor = '#444444';
-
-            const modalTitle = document.createElement('p');
-            modalTitle.classList.add('modal-card-title');
-            modalTitle.style.color = '#fff';
-            modalTitle.innerHTML = '<i class="fa-solid fa-folder"></i> ' + langs.instances;
-
-            const closeBtn = document.createElement('button');
-            closeBtn.classList.add('delete');
-            closeBtn.setAttribute('aria-label', 'close');
-
-            modalHeader.appendChild(modalTitle);
-            modalHeader.appendChild(closeBtn);
-
-            // Crear la sección del cuerpo del modal
-            const modalBody = document.createElement('section');
-            modalBody.classList.add('modal-card-body');
-            modalBody.style.backgroundColor = '#444444';
-            modalBody.style.color = '#fff';
-
-            const bodyText = document.createElement('p');
-            bodyText.innerHTML = langs.welcome_instances;
-            
-            const lineBreak = document.createElement('br');
-            const lineBreak2 = document.createElement('br');
-            
-            modalBody.appendChild(bodyText);
-            modalBody.appendChild(lineBreak);
-
-            // Crear la primera tarjeta
-
-            //obtener todas las carpetas que hay en la carpeta de instancias
-            let instancias;
-            if (!fs.existsSync(`${dataDirectory}/.battly/instances`)) {
-                fs.mkdirSync(`${dataDirectory}/.battly/instances`);
-                instancias = fs.readdirSync(`${dataDirectory}/.battly/instances`);
-            } else {
-                instancias = fs.readdirSync(`${dataDirectory}/.battly/instances`);
-            }
-
-            //crear un array vacío
-            let instanciasArray = [];
-            //recorrer todas las carpetas
-            if (instancias.length > 0) {
-                for (let i = 0; i < instancias.length; i++) {
-                    //obtener el archivo instance.json
-                    try {
-                        let instance = fs.readFileSync(
-                            `${dataDirectory}/.battly/instances/${instancias[i]}/instance.json`
-                        );
-                        //convertir el archivo a JSON
-                        let instance_json = JSON.parse(instance);
-                        instanciasArray.push(instance_json);
-
-                        // Crear el header de la primera tarjeta
-
-                        const card1 = document.createElement('div');
-                        card1.classList.add('card');
-                        card1.style.marginBottom = '-15px';
-
-                        const cardHeader1 = document.createElement('header');
-                        cardHeader1.classList.add('card-header');
-                        cardHeader1.style.cursor = 'pointer';
-
-                        const cardTitle1 = document.createElement('p');
-                        cardTitle1.classList.add('card-header-title');
-                        cardTitle1.textContent = instance_json.name;
-
-                        const cardIcon1 = document.createElement('button');
-                        cardIcon1.classList.add('card-header-icon');
-                        cardIcon1.setAttribute('aria-label', 'more options');
-
-                        const icon1 = document.createElement('span');
-                        icon1.classList.add('icon');
-
-                        const iconImage1 = document.createElement('i');
-                        iconImage1.classList.add('fas', 'fa-angle-down');
-
-                        icon1.appendChild(iconImage1);
-                        cardIcon1.appendChild(icon1);
-
-                        // Crear el contenido de la primera tarjeta
-
-                        const cardContent1 = document.createElement('div');
-                        cardContent1.classList.add('card-content');
-                        cardContent1.setAttribute('id', 'content');
-                        cardContent1.style.display = 'none';
-
-                        const cardImage1 = document.createElement('figure');
-                        cardImage1.classList.add('image', 'is-32x32');
-
-                        const img1 = document.createElement('img');
-                        img1.setAttribute('src', instance_json.image);
-                        img1.style.borderRadius = '5px';
-
-                        const cardDescription1 = document.createElement('div');
-                        cardDescription1.classList.add('content');
-                        cardDescription1.style.marginLeft = '10px';
-                        cardDescription1.textContent = instance_json.description;
-                        //añadir font-family: 'Poppins';font-weight: 700;
-                        cardDescription1.style.fontFamily = 'Poppins';
-                        cardDescription1.style.fontWeight = '700';
-
-                        // Crear el footer de la primera tarjeta
-
-                        const cardFooter1 = document.createElement('footer');
-                        cardFooter1.classList.add('card-footer');
-                        cardFooter1.setAttribute('id', 'footer');
-                        cardFooter1.style.display = 'none';
-
-                        const openButton1 = document.createElement('button');
-                        openButton1.classList.add('card-footer-item', 'button', 'is-info');
-                        openButton1.innerHTML = '<span><i class="fa-solid fa-square-up-right"></i> ' + langs.open_instance + '</span>';
-
-                        const editButton1 = document.createElement('button');
-                        editButton1.classList.add('card-footer-item', 'button', 'is-warning');
-                        editButton1.innerHTML = '<span><i class="fa-solid fa-folder-open"></i> ' + langs.open_instance_folder + '</span>';
-
-                        const deleteButton1 = document.createElement('button');
-                        deleteButton1.classList.add('card-footer-item', 'button', 'is-danger');
-                        deleteButton1.innerHTML = '<span><i class="fa-solid fa-folder-minus"></i> ' + langs.delete_instance + '</span>';
-                
-                        card1.appendChild(cardHeader1);
-                        cardHeader1.appendChild(cardTitle1);
-                        cardHeader1.appendChild(cardIcon1);
-                        card1.appendChild(cardContent1);
-                        cardContent1.appendChild(cardImage1);
-                        cardImage1.appendChild(img1);
-                        cardContent1.appendChild(cardDescription1);
-                        card1.appendChild(cardFooter1);
-                        cardFooter1.appendChild(openButton1);
-                        cardFooter1.appendChild(editButton1);
-                        cardFooter1.appendChild(deleteButton1);
-                        cardFooter1.appendChild(lineBreak2);
-                        modalBody.appendChild(card1);
-
-                        const lineBreak3 = document.createElement('br');
-                        modalBody.appendChild(lineBreak3);
-
-
-                        cardHeader1.addEventListener('click', () => {
-                            if (cardContent1.style.display === 'none') {
-                                cardContent1.style.display = 'flex';
-                                cardFooter1.style.display = 'flex';
-                                iconImage1.classList.remove('fa-angle-down');
-                                iconImage1.classList.add('fa-angle-up');
-                            } else {
-                                cardContent1.style.display = 'none';
-                                cardFooter1.style.display = 'none';
-                                iconImage1.classList.remove('fa-angle-up');
-                                iconImage1.classList.add('fa-angle-down');
-                            }
-                        });
-
-                        editButton1.addEventListener('click', () => {
-                            let path = `${dataDirectory}/.battly/instances/${instancias[i]}`
-                            shell.openPath(path.replace(/\//g, '\\'));
-                        });
-
-
-                        deleteButton1.addEventListener('click', () => {
-                            //eliminar el card, y eliminar la carpeta de la instancia
-                            Swal.fire({
-                                title: langs.are_you_sure,
-                                text: langs.are_you_sure_text,
-                                showCancelButton: true,
-                                confirmButtonColor: '#3e8ed0',
-                                cancelButtonColor: '#d33',
-                                confirmButtonText: langs.yes_delete,
-                                cancelButtonText: langs.no_cancel,
-                            }).then((result) => {
-                                if (result.isConfirmed) {
-                                    card1.remove();
-                                    lineBreak3.remove();
-                                    fs.rmdirSync(`${dataDirectory}/.battly/instances/${instancias[i]}`, { recursive: true });
-                                    Toast.fire({
-                                        icon: 'success',
-                                        title: langs.instance_deleted_correctly,
-                                    });
-                                }
-                            });
-                        });
-
-
-                        let loader;
-                        if (instance_json.version.endsWith('-forge')) {
-                            loader = 'forge';
-                        } else if (instance_json.version.endsWith('-fabric')) {
-                            loader = 'fabric';
-                        } else if (instance_json.version.endsWith('-quilt')) {
-                            loader = 'quilt';
-                        }
-
-                        let version;
-
-                        let loader_json = null;
-                        if (instance_json.loader) loader_json = instance_json.loader;
-
-                        let loaderVersion = null;
-                        if (loader_json) loaderVersion = loader_json.loaderVersion;
-
-                        if (instance_json.version.endsWith('-forge') || instance_json.version.endsWith('-fabric') || instance_json.version.endsWith('-quilt')) {
-                            version = instance_json.version.replace('-forge', '').replace('-fabric', '').replace('-quilt', '');
-                        } else {
-                            version = instance_json.version;
-                        }
-
-                        if (!fs.existsSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly`)) {
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly`);
-                        }
-
-                        if (!fs.existsSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/mods-internos`)) {
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/mods-internos`);
-                        }
-
-                        if (!fs.existsSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/launcher`)) {
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/launcher`);
-                        }
-
-                        if (!fs.existsSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/launcher/config-launcher`)) {
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/launcher/config-launcher`);
-                        }
-
-                        if (!fs.existsSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/launcher/forge`)) {
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/launcher/forge`);
-                        }
-
-                        if (!fs.existsSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/launcher/mc-assets`)) {
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances/${instancias[i]}/battly/launcher/mc-assets`);
-                        }
-
-                        let urlpkg = pkg.user ? `${pkg.url}/${pkg.user}` : pkg.url;
-                        let uuid = (await this.database.get("1234", "accounts-selected")).value;
-                        let account = (await this.database.get(uuid.selected, "accounts")).value;
-                        let ram = (await this.database.get("1234", "ram")).value;
-                        let Resolution = (await this.database.get("1234", "screen")).value;
-                        let launcherSettings = (await this.database.get("1234", "launcher")).value;
-
-                        openButton1.addEventListener('click', () => {
-                            let launch = new Launch();
-                            let opts = {
-                                url: this.config.game_url === "" || this.config.game_url === undefined ?
-                                    `${urlpkg}/files` :
-                                    this.config.game_url,
-                                authenticator: account,
-                                detached: true,
-                                timeout: 10000,
-                                path: `${dataDirectory}/.battly/instances/${instancias[i]}`,
-                                downloadFileMultiple: 20,
-                                version: version,
-                                loader: {
-                                    type: loader_json ? loader_json : loader,
-                                    build: loaderVersion ? loaderVersion : this.BattlyConfig.loader.build,
-                                    enable: true
-                                },
-                                verify: false,
-                                ignored: ["loader"],
-                                java: false,
-                                memory: {
-                                    min: `${ram.ramMin * 1024}M`,
-                                    max: `${ram.ramMax * 1024}M`,
-                                },
-                            };
-                            launch.Launch(opts);
-
-                            // Crear el elemento modal
-                            const preparingModal = document.createElement("div");
-                            preparingModal.className = "modal is-active";
-                            preparingModal.style.zIndex = "4";
-
-                            // Modal background
-                            const preparingModalBackground = document.createElement("div");
-                            preparingModalBackground.className = "modal-background";
-
-                            // Modal card
-                            const preparingModalCard = document.createElement("div");
-                            preparingModalCard.className = "modal-card";
-                            preparingModalCard.style.backgroundColor = "#444444";
-
-                            // Modal card head
-                            const preparingModalCardHead = document.createElement("header");
-                            preparingModalCardHead.className = "modal-card-head";
-                            preparingModalCardHead.style.backgroundColor = "#444444";
-
-                            const preparingModalCardTitle = document.createElement("p");
-                            preparingModalCardTitle.className = "modal-card-title";
-                            preparingModalCardTitle.style.color = "#fff";
-
-                            const preparingIcon = document.createElement("i");
-                            preparingIcon.className = "fa-solid fa-spinner fa-spin-pulse fa-sm";
-                            preparingIcon.style.color = "#fff";
-                            preparingIcon.style.marginRight = "5px";
-                            preparingIcon.style.verticalAlign = "middle";
-
-                            const preparingText = document.createTextNode(langs.preparing_instance);
-
-                    
-                            preparingModalCardTitle.appendChild(preparingText);
-
-                            preparingModalCardHead.appendChild(preparingModalCardTitle);
-
-                            // Modal card body
-                            const preparingModalCardBody = document.createElement("section");
-                            preparingModalCardBody.className = "modal-card-body";
-                            preparingModalCardBody.style.backgroundColor = "#444444";
-                            preparingModalCardBody.style.color = "#fff";
-
-                            const preparingMessage = document.createElement("p");
-                            let preparingMessageText = document.createTextNode(langs.preparing_instance);
-                            preparingMessage.appendChild(preparingMessageText);
-                            preparingMessage.appendChild(document.createElement("br"));
-
-                            const progress = document.createElement("progress");
-                            progress.className = "progress is-info";
-                            progress.setAttribute("max", "100");
-
-                            preparingModalCardBody.appendChild(preparingMessage);
-                            preparingModalCardBody.appendChild(progress);
-
-                            // Crear tarjeta 1
-                            const card1 = document.createElement("div");
-                            card1.className = "card";
-
-                            const cardHeader1 = document.createElement("header");
-                            cardHeader1.className = "card-header";
-
-                            const cardHeaderTitle1 = document.createElement("p");
-                            cardHeaderTitle1.className = "card-header-title";
-                            cardHeaderTitle1.appendChild(document.createTextNode(langs.downloading_version));
-
-                            const cardHeaderIcon1 = document.createElement("button");
-                            cardHeaderIcon1.className = "card-header-icon";
-                            cardHeaderIcon1.setAttribute("aria-label", "more options");
-
-                            const iconSpan1 = document.createElement("span");
-                            iconSpan1.className = "icon";
-
-                            const icon1 = document.createElement("i");
-                            icon1.className = "fas fa-angle-down";
-                            icon1.setAttribute("aria-hidden", "true");
-
-                            iconSpan1.appendChild(icon1);
-                            cardHeaderIcon1.appendChild(iconSpan1);
-
-                            cardHeader1.appendChild(cardHeaderTitle1);
-                            cardHeader1.appendChild(cardHeaderIcon1);
-
-                            const cardContent1 = document.createElement("div");
-                            cardContent1.className = "card-content";
-                            cardContent1.id = "content";
-                            cardContent1.style.display = "none";
-
-                            const content1 = document.createElement("div");
-                            content1.className = "content";
-                            content1.appendChild(document.createTextNode(`🔄 ${langs.downloading_version}`));
-                            content1.style.fontFamily = "Poppins";
-                            content1.style.fontWeight = "700";
-
-                            cardContent1.appendChild(content1);
-
-                            card1.appendChild(cardHeader1);
-                            card1.appendChild(cardContent1);
-
-                            preparingModalCardBody.appendChild(card1);
-                            preparingModalCardBody.appendChild(document.createElement("br"));
-
-                            // Crear tarjeta 2
-                            const card2 = document.createElement("div");
-                            card2.className = "card";
-
-                            const cardHeader2 = document.createElement("header");
-                            cardHeader2.className = "card-header";
-
-                            const cardHeaderTitle2 = document.createElement("p");
-                            cardHeaderTitle2.className = "card-header-title";
-                            cardHeaderTitle2.appendChild(document.createTextNode(langs.downloading_loader));
-
-                            const cardHeaderIcon2 = document.createElement("button");
-                            cardHeaderIcon2.className = "card-header-icon";
-                            cardHeaderIcon2.setAttribute("aria-label", "more options");
-
-                            const iconSpan2 = document.createElement("span");
-                            iconSpan2.className = "icon";
-
-                            const icon2 = document.createElement("i");
-                            icon2.className = "fas fa-angle-down";
-                            icon2.setAttribute("aria-hidden", "true");
-
-                            iconSpan2.appendChild(icon2);
-                            cardHeaderIcon2.appendChild(iconSpan2);
-
-                            cardHeader2.appendChild(cardHeaderTitle2);
-                            cardHeader2.appendChild(cardHeaderIcon2);
-
-                            const cardContent2 = document.createElement("div");
-                            cardContent2.className = "card-content";
-                            cardContent2.id = "content";
-                            cardContent2.style.display = "none";
-
-                            const content2 = document.createElement("div");
-                            content2.className = "content";
-                            content2.appendChild(document.createTextNode(`🔄 ${langs.installing_loader}`));
-                            content2.style.fontFamily = "Poppins";
-                            content2.style.fontWeight = "700";
-
-                            cardContent2.appendChild(content2);
-
-                            card2.appendChild(cardHeader2);
-                            card2.appendChild(cardContent2);
-
-                            // Crear tarjeta 3
-                            const card3 = document.createElement("div");
-                            card3.className = "card";
-
-                            const cardHeader3 = document.createElement("header");
-                            cardHeader3.className = "card-header";
-
-                            const cardHeaderTitle3 = document.createElement("p");
-                            cardHeaderTitle3.className = "card-header-title";
-                            cardHeaderTitle3.appendChild(document.createTextNode(langs.downloading_java));
-
-                            const cardHeaderIcon3 = document.createElement("button");
-                            cardHeaderIcon3.className = "card-header-icon";
-                            cardHeaderIcon3.setAttribute("aria-label", "more options");
-
-                            const iconSpan3 = document.createElement("span");
-                            iconSpan3.className = "icon";
-
-                            const icon3 = document.createElement("i");
-                            icon3.className = "fas fa-angle-down";
-                            icon3.setAttribute("aria-hidden", "true");
-
-                            iconSpan3.appendChild(icon3);
-                            cardHeaderIcon3.appendChild(iconSpan3);
-
-                            cardHeader3.appendChild(cardHeaderTitle3);
-                            cardHeader3.appendChild(cardHeaderIcon3);
-
-                            const cardContent3 = document.createElement("div");
-                            cardContent3.className = "card-content";
-                            cardContent3.id = "content";
-                            cardContent3.style.display = "none";
-
-                            const content3 = document.createElement("div");
-                            content3.className = "content";
-                            content3.appendChild(document.createTextNode(`🔄 ${langs.installing_java}`));
-                            content3.style.fontFamily = "Poppins";
-                            content3.style.fontWeight = "700";
-
-                            cardContent3.appendChild(content3);
-
-                            card3.appendChild(cardHeader3);
-                            card3.appendChild(cardContent3);
-
-                    
-                            preparingModalCardBody.appendChild(card3);
-                            preparingModalCardBody.appendChild(document.createElement("br"));
-                            preparingModalCardBody.appendChild(card2);
-
-
-                            // Modal card foot
-                            const preparingModalCardFoot = document.createElement("footer");
-                            preparingModalCardFoot.className = "modal-card-foot";
-                            preparingModalCardFoot.style.backgroundColor = "#444444";
-
-                            // Construir la estructura del modal
-                            preparingModalCard.appendChild(preparingModalCardHead);
-                            preparingModalCard.appendChild(preparingModalCardBody);
-                            preparingModalCard.appendChild(preparingModalCardFoot);
-
-                            preparingModal.appendChild(preparingModalBackground);
-                            preparingModal.appendChild(preparingModalCard);
-
-                            // Agregar el modal al contenedor en el DOM
-                            document.body.appendChild(preparingModal);
-                            modal.remove();
-
-                            launch.on('extract', extract => {
-                                new logger('Extract', '#00d1b2')
-                            });
-
-                            let assetsShown = false;
-                            let javaShown = false;
-                            let librariesShown = false;
-
-                            let content1Text;
-                            content1Text = document.createTextNode(`🔄 ${langs.checking_assets}`);
-                            let content3Text;
-                            content3Text = document.createTextNode(`🔄 ${langs.checking_java}`);
-                            let content2Text;
-                            content2Text = document.createTextNode(`🔄 ${langs.checking_instance} ${loader_json ? loader_json : loader}...`);
-                    
-
-                            launch.on('progress', (progress, size, element) => {
-                                new logger('Progress', '#00d1b2')
-                                //console.log(`Downloading ${element} ${Math.round((progress / size) * 100)}%`);
-
-
-                                if (element === 'Assets') {
-
-
-                                    if (!assetsShown) {
-                                        //añadir un br
-                                        content1.appendChild(document.createElement('br'));
-                                        content1.appendChild(content1Text);
-                                        cardContent1.style.display = 'block';
-                                        cardContent2.style.display = 'none';
-                                        cardContent3.style.display = 'none';
-                                        assetsShown = true;
-                                    }
-
-                                    content1Text.textContent = `🔄 ${langs.downloading_assets}... (${Math.round((progress / size) * 100)}%)`;
-
-                                } else if (element === 'Java') {
-
-
-                                    if (!javaShown) {
-                                        content3.appendChild(document.createElement('br'));
-                                        content3.appendChild(content3Text);
-                                        cardContent1.style.display = 'none';
-                                        cardContent2.style.display = 'none';
-                                        cardContent3.style.display = 'block';
-                                        javaShown = true;
-                                    }
-
-                                    content3Text.textContent = `🔄 ${langs.downloading_java}... (${Math.round((progress / size) * 100)}%)`;
-                                } else if (element === 'libraries') {
-
-
-                                    if (!librariesShown) {
-                                        content2.appendChild(document.createElement('br'));
-                                        content2.appendChild(content2Text);
-                                        cardContent1.style.display = 'none';
-                                        cardContent2.style.display = 'block';
-                                        cardContent3.style.display = 'none';
-                                        librariesShown = true;
-                                    }
-
-                                    content2Text.textContent = `🔄 ${langs.downloading} ${loader_json ? loader_json : loader}... (${Math.round((progress / size) * 100)}%)`;
-                                }
-                            });
-
-
-                            let assetsShownCheck = false;
-                            let javaShownCheck = false;
-                            let librariesShownCheck = false;
-
-                            launch.on('check', (progress, size, element) => {
-                                new logger('Check', '#00d1b2')
-
-                    
-                                if (element === 'assets') {
-
-
-                                    if (!assetsShownCheck) {
-                                        //añadir un br
-                                        content1.appendChild(document.createElement('br'));
-                                        content1.appendChild(content1Text);
-                                        cardContent1.style.display = 'block';
-                                        cardContent2.style.display = 'none';
-                                        cardContent3.style.display = 'none';
-                                        assetsShownCheck = true;
-                                    }
-
-                                    content1Text.textContent = `🔄 ${langs.checking_assets}... (${Math.round((progress / size) * 100)}%)`;
-                                } else if (element === 'java') {
-
-                                    if (!javaShownCheck) {
-                                        content3.appendChild(document.createElement('br'));
-                                        content3.appendChild(content3Text);
-                                        cardContent1.style.display = 'none';
-                                        cardContent2.style.display = 'none';
-                                        cardContent3.style.display = 'block';
-                                        javaShownCheck = true;
-                                    }
-
-                                    content3Text.textContent = `🔄 ${langs.checking_java}... (${Math.round((progress / size) * 100)}%)`;
-                                } else if (element === 'libraries') {
-
-
-                                    if (!librariesShownCheck) {
-                                        content2.appendChild(document.createElement('br'));
-                                        content2.appendChild(content2Text);
-                                        cardContent1.style.display = 'none';
-                                        cardContent2.style.display = 'block';
-                                        cardContent3.style.display = 'none';
-                                        librariesShownCheck = true;
-                                    }
-
-                                    content2Text.textContent = `🔄 ${langs.checking_instance} ${loader_json ? loader_json : loader}... (${Math.round((progress / size) * 100)}%)`;
-                                }
-                            });
-
-                            launch.on('speed', (speed) => {
-                                preparingMessageText.textContent = `${langs.downloading_instance} (${(speed / 1067008).toFixed(2)} MB/s)`;
-                            })
-
-                            launch.on('patch', patch => {
-                                new logger('Patch', '#00d1b2')
-                            });
-
-                            let inicio = false;
-                            launch.on('data', (e) => {
-                                new logger('Data', '#00d1b2')
-                                if (!inicio) {
-                                    if (e.includes(`Setting user: ${account.name}`) || e.includes("Launching wrapped minecraft")) {
-                                        let typeOfVersion;
-                                        if (loader === "forge") {
-                                            typeOfVersion = "Forge";
-                                        } else if (loader === "fabric") {
-                                            typeOfVersion = "Fabric";
-                                        } else if (loader === "quilt") {
-                                            typeOfVersion = "Quilt";
-                                        } else {
-                                            typeOfVersion = "";
-                                        }
-
-                                        ipcRenderer.send(
-                                            "new-status-discord-jugando",
-                                            `${langs.playing_in} ${version} ${typeOfVersion}`
-                                        );
-
-                                        this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} ${version} ${typeOfVersion}`);
-                                    }
-
-                                    ipcRenderer.send("new-notification", {
-                                        title: langs.minecraft_started_correctly,
-                                        body: langs.minecraft_started_correctly_body,
-                                    });
-
-                                    ipcRenderer.send("main-window-progress-reset");
-                        
-                                    preparingModal.remove();
-                                    inicio = true;
-
-                            
-                                    if (launcherSettings.launcher.close === "close-launcher") ipcRenderer.send("main-window-hide");
-
-                                    let versiones = this.Versions;
-
-                                    const skinsJarPath = `${dataDirectory}/.battly/instances/${instancias[i]}/mods/skins.jar`;
-                                    const skinsForgeJarPath = `${dataDirectory}/.battly/instances/${instancias[i]}/mods/skins-forge.jar`;
-                                    const skinsForgeNewJarPath = `${dataDirectory}/.battly/instances/${instancias[i]}/mods/skins-forge-new.jar`;
-
-                                    let rutaPrincipalSkinsJar = `${dataDirectory}/.battly/instances/${instancias[i]}/battly/mods-internos/skins.jar`;
-                                    let rutaPrincipalSkinsForgeJar = `${dataDirectory}/.battly/instances/${instancias[i]}/battly/mods-internos/skins-forge.jar`;
-                                    let rutaPrincipalSkinsForgeNewJar = `${dataDirectory}/.battly/instances/${instancias[i]}/battly/mods-internos/skins-forge-new.jar`;
-
-                                    let rutaModMultijugadorForge = `${dataDirectory}/.battly/instances/${instancias[i]}/battly/mods-internos/multijugador-forge.jar`;
-                                    let rutaModMultijugadorFabric = `${dataDirectory}/.battly/instances/${instancias[i]}/battly/mods-internos/multijugador-fabric.jar`;
-
-                                    let rutaModMultijugadorForgeDeMods = `${dataDirectory}/.battly/instances/${instancias[i]}/mods/multijugador-forge.jar`;
-                                    let rutaModMultijugadorFabricDeMods = `${dataDirectory}/.battly/instances/${instancias[i]}/mods/multijugador-fabric.jar`;
-
-                                    if (fs.existsSync(rutaModMultijugadorFabricDeMods)) {
-                                        fs.unlinkSync(rutaModMultijugadorFabricDeMods);
-                                    }
-
-                                    if (fs.existsSync(rutaModMultijugadorForgeDeMods)) {
-                                        fs.unlinkSync(rutaModMultijugadorForgeDeMods);
-                                    }
-
-                                    fs.unlinkSync(skinsForgeJarPath);
-                                    fs.unlinkSync(skinsForgeNewJarPath);
-
-                                    const selectedVersion = version;
-                            
-                            
-
-                                    let selectedVersionWithoutHyphen;
-
-                                    if (selectedVersion.includes("-")) {
-                                        selectedVersionWithoutHyphen = selectedVersion.replace(/-[^.]+/, "");
-                                        
-                                    }
-
-                                    const versionInfo = versiones.versions.find(
-                                        (v) => v.id === selectedVersionWithoutHyphen
-                                    );
-                            
-
-                                    if (versionInfo) {
-                                        function formatVersionNumber(version) {
-                                            const parsedVersion = parseFloat(version);
-                                            if (!isNaN(parsedVersion)) {
-                                                const formattedVersion = parsedVersion.toString();
-                                                return formattedVersion;
-                                            }
-                                            return version; // Si no se puede analizar como número, devuelve la versión original
-                                        }
-
-                                        // Ejemplo de uso:
-                                        const versionNumber = formatVersionNumber(versionInfo.version);
-
-                                        let versionesCompatiblesConForgeNormal = [
-                                            "1.16.5",
-                                            "1.16.4",
-                                            "1.16.3",
-                                            "1.16.2",
-                                            "1.16.1",
-                                            "1.16",
-                                            "1.15.2",
-                                            "1.15.1",
-                                            "1.15",
-                                            "1.14.4",
-                                            "1.14.3",
-                                            "1.14.2",
-                                            "1.14.1",
-                                            "1.14",
-                                            "1.13.2",
-                                            "1.13.1",
-                                            "1.13",
-                                            "1.12.2",
-                                            "1.12.1",
-                                            "1.12",
-                                            "1.11.2",
-                                            "1.11.1",
-                                            "1.11",
-                                            "1.10.2",
-                                            "1.10.1",
-                                            "1.10",
-                                            "1.9.4",
-                                            "1.9.3",
-                                            "1.9.2",
-                                            "1.9.1",
-                                            "1.9",
-                                            "1.8.9",
-                                            "1.8.8",
-                                            "1.8.7",
-                                            "1.8.6",
-                                            "1.8.5",
-                                            "1.8.4",
-                                            "1.8.3",
-                                            "1.8.2",
-                                            "1.8.1",
-                                            "1.8",
-                                        ];
-
-                                        
-
-                                        const excludedVersions = [
-                                            1.16, 1.15, 1.14, 1.13, 1.12, 1.11, 1.1, 1.9, 1.8, 1.7, 1.6,
-                                            1.5, 1.4, 1.3,
-                                        ];
-                                        const includedVersionsForgeNew = [1.17, 1.18, 1.19, 1.2, 1.21];
-                                        const versionesConMultijugadorDesactivado = ["1.16.4", "1.16.5"];
-
-                                        
-
-                                        if (
-                                            versionesConMultijugadorDesactivado.includes(version) &&
-                                            loader === "forge"
-                                        ) {
-                                            fs.copyFileSync(
-                                                rutaModMultijugadorForge,
-                                                `${dataDirectory}/.battly/instances/${instancias[i]}/mods/multijugador-forge.jar`
-                                            );
-                                        } else if (
-                                            versionesConMultijugadorDesactivado.includes(version) &&
-                                            loader === "fabric"
-                                        ) {
-                                            fs.copyFileSync(
-                                                rutaModMultijugadorFabric,
-                                                `${dataDirectory}/.battly/instances/${instancias[i]}/mods/multijugador-fabric.jar`
-                                            );
-                                        }
-
-                                        if (
-                                            includedVersionsForgeNew.includes(parseFloat(version)) &&
-                                            !excludedVersions.includes(parseFloat(version)) &&
-                                            loader === "forge"
-                                        ) {
-                                            
-
-                                            fs.copyFileSync(
-                                                rutaPrincipalSkinsForgeNewJar,
-                                                skinsForgeNewJarPath
-                                            );
-
-                                            // Eliminar skins.jar y skins-forge.jar
-                                            if (fs.existsSync(skinsJarPath)) {
-                                                fs.unlinkSync(skinsJarPath);
-                                            }
-                                            if (fs.existsSync(skinsForgeJarPath)) {
-                                                fs.unlinkSync(skinsForgeJarPath);
-                                            }
-                                        } else if (
-                                            versionesCompatiblesConForgeNormal.includes(version) &&
-                                            loader === "forge"
-                                        ) {
-                                            
-
-                                            fs.copyFileSync(rutaPrincipalSkinsForgeJar, skinsForgeJarPath);
-
-                                            // Eliminar skins.jar y skins-forge-new.jar
-                                            if (fs.existsSync(skinsJarPath)) {
-                                                fs.unlinkSync(skinsJarPath);
-                                            }
-                                            if (fs.existsSync(skinsForgeNewJarPath)) {
-                                                fs.unlinkSync(skinsForgeNewJarPath);
-                                            }
-                                        } else if (loader == "fabric" || loader == "quilt") {
-
-                                            fs.copyFileSync(rutaPrincipalSkinsJar, skinsJarPath);
-                                            // Eliminar skins-forge.jar y skins-forge-new.jar
-                                            if (fs.existsSync(skinsForgeJarPath)) {
-                                                fs.unlinkSync(skinsForgeJarPath);
-                                            }
-                                            if (fs.existsSync(skinsForgeNewJarPath)) {
-                                                fs.unlinkSync(skinsForgeNewJarPath);
-                                            }
-                                        }
-                                    } else {
-                                        console.log("❌ La versión no está en la lista.");
-                                    }
-
-                                    let archivoConfigSkins = `${dataDirectory}/.battly/instances/${instancias[i]}/CustomSkinLoader/CustomSkinLoader.json`;
-                                    let data = {
-                                        version: "14.15",
-                                        buildNumber: 8,
-                                        loadlist: [{
-                                            name: "BattlyAPI",
-                                            type: "Legacy",
-                                            checkPNG: false,
-                                            skin: "http://api.battlylauncher.com/api/skin/{USERNAME}.png",
-                                            model: "auto",
-                                            cape: "http://api.battlylauncher.com/api/capa/{USERNAME}.png",
-                                        },
-                                        {
-                                            name: "Mojang",
-                                            type: "MojangAPI",
-                                            apiRoot: "https://api.mojang.com/",
-                                            sessionRoot: "https://sessionserver.mojang.com/",
-                                        },
-                                        {
-                                            name: "OptiFine",
-                                            type: "Legacy",
-                                            checkPNG: false,
-                                            model: "auto",
-                                            cape: "https://optifine.net/capes/{USERNAME}.png",
-                                        },
-                                        {
-                                            name: "LabyMod",
-                                            type: "Legacy",
-                                            checkPNG: false,
-                                            model: "auto",
-                                            cape: "https://dl.labymod.net/capes/{STANDARD_UUID}",
-                                        },
-                                        ],
-                                        enableDynamicSkull: true,
-                                        enableTransparentSkin: true,
-                                        forceIgnoreHttpsCertificate: true,
-                                        forceLoadAllTextures: true,
-                                        enableCape: true,
-                                        threadPoolSize: 8,
-                                        enableLogStdOut: false,
-                                        cacheExpiry: 30,
-                                        forceUpdateSkull: true,
-                                        enableLocalProfileCache: false,
-                                        enableCacheAutoClean: true,
-                                        forceDisableCache: true,
-                                    };
-
-                                    if (fs.existsSync(path.join(archivoConfigSkins))) {
-                                        fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                                    } else {
-                                        fs.mkdirSync(`${dataDirectory}/.battly/instances/${instancias[i]}/CustomSkinLoader`, { recursive: true });
-                                        fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                                    }
-                    
-                                }
-                            })
-
-                            launch.on('close', code => {
-                        
-                                if (launcherSettings.launcher.close === "close-launcher")
-                                    ipcRenderer.send("main-window-show");
-
-                                ipcRenderer.send('updateStatus', {
-                                    status: 'online',
-                                    details: langs.in_the_menu,
-                                    username: account.name,
-                                });
-                            });
-
-                            launch.on('error', err => {
-                                new logger('[Error]', '#ff3860')
-                                console.log(err);
-                            });
-
-
-                        });
-                    } catch {
-                        console.log("❌ No se ha podido leer el archivo instance.json");
-                    }
-                }
-                    
-            }
-
-            const card2 = document.createElement('div');
-            card2.classList.add('card');
-            card2.style.cursor = 'pointer';
-
-            const cardHeader2 = document.createElement('header');
-            cardHeader2.classList.add('card-header');
-
-            const cardTitle2 = document.createElement('p');
-            cardTitle2.classList.add('card-header-title');
-            cardTitle2.textContent = langs.create_instance;
-
-            const cardIcon2 = document.createElement('button');
-            cardIcon2.classList.add('card-header-icon');
-            cardIcon2.setAttribute('aria-label', 'more options');
-
-            const icon2 = document.createElement('span');
-            icon2.classList.add('icon');
-
-            const iconImage2 = document.createElement('i');
-            iconImage2.classList.add('fas', 'fa-plus');
-
-            icon2.appendChild(iconImage2);
-            cardIcon2.appendChild(icon2);
-
-            // Agregar elementos al DOM
-            document.body.appendChild(modal);
-            modal.appendChild(modalBackground);
-            modal.appendChild(modalCard);
-            modalCard.appendChild(modalHeader);
-            modalCard.appendChild(modalBody);
-            modalBody.appendChild(lineBreak2);
-            modalBody.appendChild(card2);
-            card2.appendChild(cardHeader2);
-            cardHeader2.appendChild(cardTitle2);
-            cardHeader2.appendChild(cardIcon2);
-
-
-            closeBtn.addEventListener('click', () => {
-                modal.remove();
-            });
-
-
-            card2.addEventListener('click', () => {
-                // Crear el elemento modal
-                const modal = document.createElement("div");
-                modal.className = "modal is-active";
-                modal.style.zIndex = "3";
-
-                // Modal background
-                const modalBackground = document.createElement("div");
-                modalBackground.className = "modal-background";
-
-                // Modal card
-                const modalCard = document.createElement("div");
-                modalCard.className = "modal-card";
-                modalCard.style.backgroundColor = "#444444";
-
-                // Modal card head
-                const modalCardHead = document.createElement("header");
-                modalCardHead.className = "modal-card-head";
-                modalCardHead.style.backgroundColor = "#444444";
-
-                const modalCardTitle = document.createElement("p");
-                modalCardTitle.className = "modal-card-title";
-                modalCardTitle.style.fontSize = "25px";
-                modalCardTitle.style.fontFamily = "Poppins";
-                modalCardTitle.style.color = "#fff";
-                modalCardTitle.innerText = langs.create_instance;
-
-                const closeButton = document.createElement("button");
-                closeButton.className = "delete";
-                closeButton.setAttribute("aria-label", "close");
-
-                modalCardHead.appendChild(modalCardTitle);
-                modalCardHead.appendChild(closeButton);
-
-                // Modal card body
-                const modalCardBody = document.createElement("section");
-                modalCardBody.className = "modal-card-body";
-                modalCardBody.style.backgroundColor = "#444444";
-
-                const nameLabel = document.createElement("p");
-                nameLabel.style.color = "#fff";
-                nameLabel.innerText = langs.instance_name;
-
-                const nameInput = document.createElement("input");
-                nameInput.className = "input is-info";
-                nameInput.type = "text";
-                nameInput.style.fontFamily = "Poppins";
-                nameInput.style.fontWeight = "500";
-                nameInput.style.fontSize = "12px";
-                nameInput.setAttribute("placeholder", langs.name);
-
-                const descriptionLabel = document.createElement("p");
-                descriptionLabel.style.color = "#fff";
-                descriptionLabel.innerText = langs.instance_description;
-
-                const descriptionTextarea = document.createElement("textarea");
-                descriptionTextarea.className = "textarea is-info";
-                descriptionTextarea.style.fontFamily = "Poppins";
-                descriptionTextarea.style.height = "20px";
-                descriptionTextarea.style.fontWeight = "500";
-                descriptionTextarea.style.fontSize = "12px";
-                descriptionTextarea.setAttribute("name", "about");
-                descriptionTextarea.setAttribute("placeholder", langs.description);
-
-                const imageLabel = document.createElement("p");
-                imageLabel.style.color = "#fff";
-                imageLabel.innerText = langs.instance_image;
-
-                const imageContainer = document.createElement("div");
-                imageContainer.style.display = "flex";
-
-                const imageFigure = document.createElement("figure");
-                imageFigure.className = "image is-64x64";
-                imageFigure.style.marginRight = "10px";
-
-                const image = document.createElement("img");
-                image.src = "./assets/images/icons/minecraft.png";
-                image.style.borderRadius = "5px";
-
-                const fileContainer = document.createElement("div");
-                fileContainer.className = "file is-info is-boxed";
-                fileContainer.style.height = "65px";
-
-                const fileLabel = document.createElement("label");
-                fileLabel.className = "file-label";
-
-                const fileInput = document.createElement("input");
-                fileInput.className = "file-input";
-                fileInput.type = "file";
-                fileInput.setAttribute("name", "resume");
-
-                const fileCta = document.createElement("span");
-                fileCta.className = "file-cta";
-
-                const fileIcon = document.createElement("span");
-                fileIcon.className = "file-icon";
-
-                const uploadIcon = document.createElement("i");
-                uploadIcon.className = "fas fa-cloud-upload-alt";
-
-                const fileLabelText = document.createElement("span");
-                fileLabelText.style.fontSize = "10px";
-                fileLabelText.innerText = langs.select_a_file;
-
-                fileIcon.appendChild(uploadIcon);
-                fileCta.appendChild(fileIcon);
-                fileCta.appendChild(fileLabelText);
-                fileLabel.appendChild(fileInput);
-                fileLabel.appendChild(fileCta);
-                fileContainer.appendChild(fileLabel);
-
-                imageFigure.appendChild(image);
-                imageContainer.appendChild(imageFigure);
-                imageContainer.appendChild(fileContainer);
-
-                const versionLabel = document.createElement("p");
-                versionLabel.style.color = "#fff";
-                versionLabel.innerText = langs.instance_version;
-
-                const versionSelect = document.createElement("div");
-                versionSelect.className = "select is-info";
-
-                const versionOptions = document.createElement("select");
-
-                versionSelect.appendChild(versionOptions);
-
-                modalCardBody.appendChild(nameLabel);
-                modalCardBody.appendChild(nameInput);
-                modalCardBody.appendChild(document.createElement("br"));
-                modalCardBody.appendChild(document.createElement("br"));
-                modalCardBody.appendChild(descriptionLabel);
-                modalCardBody.appendChild(descriptionTextarea);
-                modalCardBody.appendChild(document.createElement("br"));
-                modalCardBody.appendChild(imageLabel);
-                modalCardBody.appendChild(imageContainer);
-                modalCardBody.appendChild(document.createElement("br"));
-                modalCardBody.appendChild(versionLabel);
-                modalCardBody.appendChild(versionSelect);
-
-                // Modal card foot
-                const modalCardFoot = document.createElement("footer");
-                modalCardFoot.className = "modal-card-foot";
-                modalCardFoot.style.backgroundColor = "#444444";
-
-                const createButton = document.createElement("button");
-                createButton.className = "button is-info is-responsive";
-                createButton.style.fontSize = "12px";
-                createButton.style.fontFamily = "Poppins";
-                createButton.style.color = "#fff";
-                createButton.innerText = langs.create_instance;
-
-                modalCardFoot.appendChild(createButton);
-
-                // Construir la estructura del modal
-                modalCard.appendChild(modalCardHead);
-                modalCard.appendChild(modalCardBody);
-                modalCard.appendChild(modalCardFoot);
-
-                modal.appendChild(modalBackground);
-                modal.appendChild(modalCard);
-
-                // Agregar el modal al contenedor en el DOM
-                document.body.appendChild(modal);
-
-
-
-                let versiones = this.Versions;
-                for (let i = 0; i < versiones.versions.length; i++) {
-                    if (versiones.versions[i].version.endsWith("-forge") || versiones.versions[i].version.endsWith("-fabric") || versiones.versions[i].version.endsWith("-quilt")) {
-                        let version = versiones.versions[i];
-                        let option = document.createElement("option");
-                        option.value = version.version;
-                        option.innerHTML = version.name;
-                        versionOptions.appendChild(option);
-                    }
-                }
-
-                closeButton.addEventListener("click", () => {
-                    modal.remove();
-                });
-
-
-                fileInput.addEventListener("change", () => {
-                    let imagen = fileInput.files ? fileInput.files : null;
-                    if (imagen.length > 0) {
-                        let reader = new FileReader();
-                        reader.onload = function (e) {
-                            image.src = e.target.result;
-                        };
-                        reader.readAsDataURL(imagen[0]);
-                    }
-                });
-
-
-                createButton.addEventListener("click", () => {
-                    let name = nameInput.value;
-                    let description = descriptionTextarea.value;
-                    let version = versionOptions.value;
-
-                    if (name && description && version) {
-                        //crear un string random de 6 caracteres
-                        let randomString = Math.random().toString(36).substring(2, 8);
-                        //crear el archivo de la instancia
-                        //comprobar si existe la carpeta de instancias
-                        if (!fs.existsSync(`${dataDirectory}/.battly/instances`)) {
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances`);
-                        }
-
-                        //comprobar si existe la carpeta de la instancia
-                        if (!fs.existsSync(`${dataDirectory}/.battly/instances/${randomString}`)) {
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances/${randomString}`);
-                        } else {
-                            //generar otro string random
-                            randomString = Math.random().toString(36).substring(2, 8);
-                            //crear la carpeta de la instancia
-                            fs.mkdirSync(`${dataDirectory}/.battly/instances/${randomString}`);
-                        }
-
-                        
-                        let imagen = fileInput.files ? fileInput.files : null;
-                        if (imagen.length > 0) {
-                            fs.copyFileSync(
-                                imagen[0].path,
-                                `${dataDirectory}/.battly/instances/${randomString}/icon.png`
-                            );
-                        } else {
-                            //descargar la imagen https://bulma.io/images/placeholders/128x128.png y moverla a la carpeta de la instancia
-                            imagen = "/assets/images/icons/minecraft.png";
-                            //convertir a buffer
-                            let buffer = fs.readFileSync(__dirname + imagen);
-                            //escribir el archivo
-                            fs.writeFileSync(
-                                `${dataDirectory}/.battly/instances/${randomString}/icon.png`,
-                                buffer
-                            );
-                        }
-
-                        let instance = {
-                            name: name,
-                            description: description,
-                            version: version,
-                            image: `${dataDirectory}/.battly/instances/${randomString}/icon.png`,
-                            id: randomString,
-                        };
-
-                        let instance_json = JSON.stringify(instance);
-                        fs.writeFileSync(
-                            path.join(
-                                `${dataDirectory}/.battly/instances/${randomString}`,
-                                "instance.json"
-                            ),
-                            instance_json
-                        );
-                        
-                        //eliminar el modal
-                        modal.remove();
-
-                        Toast.fire({
-                            icon: "success",
-                            title: langs.instance_created_correctly,
-                        });
-                    } else {
-                        Toast.fire({
-                            icon: "error",
-                            title: langs.fill_all_fields,
-                        });
-                    }
-                });
-            });
+        new Alert().ShowAlert({
+            icon: "success",
+            title: await window.getString('home.logsSavedCorrectly') || 'Logs guardados correctamente',
         });
     }
 
@@ -1524,49 +2464,57 @@ class Home {
     async CambiarRutaJava() {
         let inputRutaJava = document.getElementById("ruta-java-input");
 
-        let ruta_java = localStorage.getItem("java-path");
+        let ruta_java = await getValue("java-path");
 
         if (ruta_java) {
             inputRutaJava.value = ruta_java;
         } else {
-            //si es windows
             if (process.platform === "win32") {
-                //hacer un scan en ``${dataDirectory}/.battly/runtime`` ver si están la carpeta jre-17.0.8-win32 o jre-17.0.1.12.1-win32
                 if (
-                    fs.existsSync(`${dataDirectory}/.battly/runtime/jre-17.0.8-win32`)
+                    fs.existsSync(`${dataDirectory} /.battly / runtime / jre - 17.0.8 - win32`)
                 ) {
-                    //si existe, poner la ruta en el input
-                    inputRutaJava.value = `${dataDirectory}/.battly/runtime/jre-17.0.8-win32/bin/java.exe`;
-                    localStorage.setItem(
+                    inputRutaJava.value = `${dataDirectory} /.battly / runtime / jre - 17.0.8 - win32 / bin / java.exe`;
+                    await setValue(
                         "java-path",
-                        `${dataDirectory}/.battly/runtime/jre-17.0.8-win32/bin/java.exe`
+                        `${dataDirectory} /.battly / runtime / jre - 17.0.8 - win32 / bin / java.exe`
                     );
                 } else if (
-                    fs.existsSync(`${dataDirectory}/.battly/runtime/jre-17.0.1.12.1-win32`)
+                    fs.existsSync(
+                        `${dataDirectory} /.battly / runtime / jre - 17.0.1.12.1 - win32`
+                    )
                 ) {
-                    //si existe, poner la ruta en el input
-                    inputRutaJava.value = `${dataDirectory}/.battly/runtime/jre-17.0.1.12.1-win32/bin/java.exe`;
-                    localStorage.setItem(
+                    inputRutaJava.value = `${dataDirectory} /.battly / runtime / jre - 17.0.1.12.1 - win32 / bin / java.exe`;
+                    await setValue(
                         "java-path",
-                        `${dataDirectory}/.battly/runtime/jre-17.0.1.12.1-win32/bin/java.exe`
+                        `${dataDirectory} /.battly / runtime / jre - 17.0.1.12.1 - win32 / bin / java.exe`
                     );
-                } else if(fs.existsSync(`${dataDirectory}/.battly/runtime/jre-17.0.8-windows-x64`)) {
-                    inputRutaJava.value = `${dataDirectory}/.battly/runtime/jre-17.0.8-windows-x64/bin/java.exe`;
-                    localStorage.setItem(
+                } else if (
+                    fs.existsSync(
+                        `${dataDirectory} /.battly / runtime / jre - 17.0.8 - windows - x64`
+                    )
+                ) {
+                    inputRutaJava.value = `${dataDirectory} /.battly / runtime / jre - 17.0.8 - windows - x64 / bin / java.exe`;
+                    await setValue(
                         "java-path",
-                        `${dataDirectory}/.battly/runtime/jre-17.0.8-windows-x64/bin/java.exe`
+                        `${dataDirectory} /.battly / runtime / jre - 17.0.8 - windows - x64 / bin / java.exe`
                     );
-                } else if(fs.existsSync(`${dataDirectory}/.battly/runtime/jre-17.0.1.12.1-windows-x64`)) {
-                    inputRutaJava.value = `${dataDirectory}/.battly/runtime/jre-17.0.1.12.1-windows-x64/bin/java.exe`;
-                    localStorage.setItem(
+                } else if (
+                    fs.existsSync(
+                        `${dataDirectory} /.battly / runtime / jre - 17.0.1.12.1 - windows - x64`
+                    )
+                ) {
+                    inputRutaJava.value = `${dataDirectory} /.battly / runtime / jre - 17.0.1.12.1 - windows - x64 / bin / java.exe`;
+                    await setValue(
                         "java-path",
-                        `${dataDirectory}/.battly/runtime/jre-17.0.1.12.1-windows-x64/bin/java.exe`
+                        `${dataDirectory} /.battly / runtime / jre - 17.0.1.12.1 - windows - x64 / bin / java.exe`
                     );
                 } else {
-                    inputRutaJava.value = "Java no encontrado. Haz click aquí para buscarlo.";
+                    inputRutaJava.value =
+                        "Java no encontrado. Haz click aquí para buscarlo.";
                 }
             } else {
-                inputRutaJava.value = "Java no encontrado. Haz click aquí para buscarlo.";
+                inputRutaJava.value =
+                    "Java no encontrado. Haz click aquí para buscarlo.";
             }
         }
     }
@@ -1575,55 +2523,148 @@ class Home {
         ipcRenderer.on("getLogsAnterior", async () => {
             let generated = consoleOutput + "\n" + consoleOutput_;
             await fs.writeFileSync(logFilePath, generated);
-        })
+        });
     }
 
     async GetLogsSocket() {
         ipcRenderer.on("avisoObtenerLogs", async (event, args) => {
-            Swal.fire({
-                title: langs.title_access_logs,
-                text: langs.text_access_logs,
-                html: `${langs.requester} ${args.user}<br>${langs.reason}: ${args.razon}<br><br>${langs.text_access_logs_two}`,
-                showCancelButton: true,
-                confirmButtonText: langs.allow,
-                cancelButtonText: langs.deny,
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    if (!fs.existsSync(logFilePath)) {
-                        let generated = consoleOutput + "\n" + consoleOutput_;
-                        await fs.writeFileSync(logFilePath, generated);
-                        ipcRenderer.send("obtenerLogs");
-                    } else {
-                        await fs.unlinkSync(logFilePath);
-                        let generated = consoleOutput + "\n" + consoleOutput_;
-                        await fs.writeFileSync(logFilePath, generated);
-                        ipcRenderer.send("obtenerLogs");
-                    }
+            try {
+                await modal.ask({
+                    title: await window.getString('home.titleAccessLogs') || 'Acceso a logs',
+                    text: await window.getString('home.textAccessLogs') || '¿Quieres dar acceso a tus logs?',
+                    html: `${await window.getString('home.requester') || 'Solicitante:'} ${args.user} < br > ${await window.getString('home.reason') || 'Razón'}: ${args.razon} < br > <br>${await window.getString('home.textAccessLogsTwo') || '¿Estás seguro de que quieres compartir tus logs?'}`,
+                    showCancelButton: true,
+                    confirmButtonText: await window.getString('home.allow') || 'Permitir',
+                    cancelButtonText: await window.getString('home.deny') || 'Denegar',
+                    preConfirm: () => true
+                });
+
+                if (!fs.existsSync(logFilePath)) {
+                    let generated = consoleOutput + "\n" + consoleOutput_;
+                    await fs.writeFileSync(logFilePath, generated);
+
+                    let account = await this.database?.getSelectedAccount();
+                    let ram = (await this.database.get("1234", "ram")).value;
+                    let Resolution = (await this.database.get("1234", "screen")).value;
+                    let launcherSettings = (await this.database.get("1234", "launcher")).value;
+
+                    let accountsOnlyUsernamesAndUUID = this.database.getAccounts().map(account => ({
+                        username: account.name,
+                        uuid: account.uuid,
+                    }));
+
+                    let accountOnlyUsernameAndUUID = {
+                        username: account.name,
+                        uuid: account.uuid,
+                    };
+
+                    const userData = {
+                        selectedAccount: accountOnlyUsernameAndUUID,
+                        accounts: accountsOnlyUsernamesAndUUID,
+                        ram: ram,
+                        resolution: Resolution,
+                        launcherSettings: launcherSettings,
+                        javaPath: await getValue("java-path"),
+                        lang: await getValue("lang"),
+                        theme: {
+                            background_loading_screen_color: await getValue("background-loading-screen-color"),
+                            bottom_bar_opacity: await getValue("theme-opacity-bottom-bar"),
+                            color_bottom_bar: await getValue("theme-color-bottom-bar"),
+                            color: await getValue("theme-color"),
+                            start_sound: await getValue("sonido-inicio"),
+                            playing_song: await getValue("songPlaying"),
+                        },
+                        news_shown: {
+                            news_shown_v17: await getValue("news_shown_v1.7"),
+                            news_shown_v18: await getValue("news_shown_v2.0"),
+                            news_shown_v30: await getValue("news_shown_v3.0"),
+                        },
+                        welcome_premium_shown: await getValue("WelcomePremiumShown"),
+                    };
+
+                    ipcRenderer.send("obtenerLogs", userData);
                 } else {
-                    Toast.fire({
-                        icon: "error",
-                        title: langs.access_logs_denied,
-                        text: langs.access_logs_denied_text
-                    });
+                    await fs.unlinkSync(logFilePath);
+                    let generated = consoleOutput + "\n" + consoleOutput_;
+                    await fs.writeFileSync(logFilePath, generated);
+
+                    let account = await this.database?.getSelectedAccount();
+                    let ram = (await this.database.get("1234", "ram")).value;
+                    let Resolution = (await this.database.get("1234", "screen")).value;
+                    let launcherSettings = (await this.database.get("1234", "launcher")).value;
+
+                    let accountsOnlyUsernamesAndUUID = this.database.getAccounts().map(account => ({
+                        username: account.name,
+                        uuid: account.uuid,
+                    }));
+
+                    let accountOnlyUsernameAndUUID = {
+                        username: account.name,
+                        uuid: account.uuid,
+                    };
+
+                    const userData = {
+                        selectedAccount: accountOnlyUsernameAndUUID,
+                        accounts: accountsOnlyUsernamesAndUUID,
+                        ram: ram,
+                        resolution: Resolution,
+                        launcherSettings: launcherSettings,
+                        javaPath: await getValue("java-path"),
+                        lang: await getValue("lang"),
+                        theme: {
+                            background_loading_screen_color: await getValue("background-loading-screen-color"),
+                            bottom_bar_opacity: await getValue("theme-opacity-bottom-bar"),
+                            color_bottom_bar: await getValue("theme-color-bottom-bar"),
+                            color: await getValue("theme-color"),
+                            start_sound: await getValue("sonido-inicio"),
+                            playing_song: await getValue("songPlaying"),
+                        },
+                        news_shown: {
+                            news_shown_v17: await getValue("news_shown_v1.7"),
+                            news_shown_v18: await getValue("news_shown_v2.0"),
+                            news_shown_v30: await getValue("news_shown_v3.0"),
+                        },
+                        welcome_premium_shown: await getValue("WelcomePremiumShown"),
+                    };
+
+                    ipcRenderer.send("obtenerLogs", userData);
                 }
-            });
+
+            } catch (err) {
+                if (err === 'cancelled') {
+                    new Alert().ShowAlert({
+                        icon: "error",
+                        title: await window.getString('home.accessLogsDenied') || 'Acceso a logs denegado',
+                        text: await window.getString('home.accessLogsDeniedText') || 'Has denegado el acceso a los logs'
+                    });
+                } else {
+                    console.error("Error inesperado al procesar solicitud de logs:", err);
+                }
+            }
         });
 
+
         ipcRenderer.on("enviarSocketID", async (event, args) => {
-            Swal.fire({
-                title: langs.title_access_logs,
-                text: `${langs.your_unique_id_is} ${args.sessionID} ${langs.dont_share_it}`,
-                confirmButtonText: langs.copy,
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    navigator.clipboard.writeText(args.sessionID);
-                    Toast.fire({
-                        icon: "success",
-                        title: langs.id_copied_correctly
-                    });
-                }
-            });
+            try {
+                await modal.ask({
+                    title: await window.getString('home.titleAccessLogs') || 'Acceso a logs',
+                    text: `${await window.getString('home.yourUniqueIdIs') || 'Tu ID único es'} ${args.sessionID} ${await window.getString('home.dontShareIt') || 'no lo compartas'}`,
+                    showCancelButton: false,
+                    confirmButtonText: await window.getString('home.copy') || 'Copiar',
+                    preConfirm: () => true
+                });
+
+                navigator.clipboard.writeText(args.sessionID);
+                new Alert().ShowAlert({
+                    icon: "success",
+                    title: await window.getString('home.idCopiedCorrectly') || 'ID copiado correctamente',
+                });
+
+            } catch (err) {
+                console.error("Error al copiar ID:", err);
+            }
         });
+
     }
 
     async WaitData() {
@@ -1647,7 +2688,9 @@ class Home {
             fs.mkdirSync(`${dataDirectory}/.battly/battly/launcher`);
         }
 
-        if (!fs.existsSync(`${dataDirectory}/.battly/battly/launcher/config-launcher`)) {
+        if (
+            !fs.existsSync(`${dataDirectory}/.battly/battly/launcher/config-launcher`)
+        ) {
             fs.mkdirSync(`${dataDirectory}/.battly/battly/launcher/config-launcher`);
         }
 
@@ -1665,7 +2708,7 @@ class Home {
         btnShowNews.addEventListener("click", async () => {
             changePanel("news");
         });
-        let news_shown = localStorage.getItem("news_shown_v1.7");
+        let news_shown = await getValue("news_shown_v3.0");
         if (
             !news_shown ||
             news_shown == "false" ||
@@ -1674,7 +2717,7 @@ class Home {
         ) {
             setTimeout(function () {
                 changePanel("news");
-            }, 3000);
+            }, 1500);
         }
     }
 
@@ -1684,142 +2727,26 @@ class Home {
             changePanel("music");
         });
 
-        let color = localStorage.getItem("theme-color");
-        if (!color) color = "#3e8ed0";
-        let color_bottom_bar = localStorage.getItem("theme-color-bottom-bar");
-        let opacity = localStorage.getItem("theme-opacity-bottom-bar");
-        let background_img = localStorage.getItem("background-img");
+        const video = document.getElementById("video-background");
+        let backgroundVideo = await getValue("background-video");
 
-        let buttons = document.querySelectorAll(".button");
-        let btns = document.querySelectorAll(".btn");
-        let tab_btns = document.querySelectorAll(".tab-btn");
-        let inputs = document.querySelectorAll(".input");
-        let select = document.querySelectorAll(".select");
-        let select_options = document.querySelectorAll(".select-version");
-        let select_selected = document.querySelectorAll(".select-selected");
-        let select_selected_span = document.querySelectorAll(
-            ".select-selected span"
-        );
-        let bottom_bar = document.querySelector(".bottom_bar");
-        let bottom_bar_settings = document.querySelector(".bottom_bar_settings");
-        let bottom_bar_mods = document.querySelector(".bottom_bar_mods");
-
-        if (color_bottom_bar) { } else {
-            color_bottom_bar.value = "#1f1f1f";
-            localStorage.setItem("theme-color-bottom-bar", "#1f1f1f");
-        }
-
-        bottom_bar.style.backgroundColor = color_bottom_bar;
-        bottom_bar_settings.style.backgroundColor = color_bottom_bar;
-        bottom_bar_mods.style.backgroundColor = color_bottom_bar;
-
-        buttons.forEach((button) => {
-            button.style.backgroundColor = color;
-        });
-
-        if (opacity) {
-            bottom_bar.style.opacity = opacity;
-            bottom_bar_settings.style.opacity = opacity;
-            bottom_bar_mods.style.opacity = opacity;
+        if (backgroundVideo) {
+            video.style.display = "";
+            video.querySelector("source").src = backgroundVideo;
+            video.load();
+            video.play();
         } else {
-            bottom_bar.style.opacity = "1";
-            bottom_bar_settings.style.opacity = "1";
-            bottom_bar_mods.style.opacity = "1";
+            video.style.display = "none";
         }
 
-        document.querySelector(".save-tabs-btn").style.backgroundColor = color;
-
-        btns.forEach((btn) => {
-            btn.style.backgroundColor = color;
-        });
-
-        tab_btns.forEach((tab_btn) => {
-            tab_btn.style.backgroundColor = color;
-        });
-
-        inputs.forEach((input) => {
-            input.style.backgroundColor = color;
-        });
-
-        select.forEach((select) => {
-            select.style.backgroundColor = color;
-        });
-
-        select_options.forEach((select_option) => {
-            select_option.style.backgroundColor = color;
-        });
-
-        select_selected.forEach((select_selected) => {
-            select_selected.style.backgroundColor = color;
-        });
-
-        select_selected_span.forEach((select_selected_span) => {
-            select_selected_span.style.backgroundColor = color;
-        });
-
-        if (background_img) {
-            document.body.style.backgroundImage = `url(${background_img})`;
-        } else { }
+        if (!await getValue("launchboost")) {
+            document.getElementById("launchboost").removeAttribute("checked");
+        }
     }
+
 
     async IniciarEstadoDiscord() {
         ipcRenderer.send("new-status-discord");
-    }
-
-    async CargarVersiones() {
-        let versiones = document.getElementById("listaDeVersiones");
-        let btnReloadVersions = document.getElementById("reiniciar-versiones");
-        btnReloadVersions.addEventListener("click", () => {
-            versiones.innerHTML = "";
-            this.CargarVersiones();
-            
-            Toast.fire({
-                icon: "success",
-                title: langs.version_list_updated,
-            });
-        });
-        try {
-            let versiones_nuevas = fs.readdirSync(
-                dataDirectory + "/.battly/versions"
-            );
-
-            let versions_vanilla = [];
-
-            for (let i = 0; i < versiones_nuevas.length; i++) {
-                let data_versions_mojang = this.VersionsMojang;
-
-                for (let i = 0; i < data_versions_mojang.versions.length; i++) {
-                    let version = data_versions_mojang.versions[i].id;
-                    versions_vanilla.push(version);
-                }
-
-
-
-
-                let version = versiones_nuevas[i];
-
-                if (!versions_vanilla.includes(version)) {
-                    let option = document.createElement("option");
-                    //si contiene OptiFine- eliminar todo lo que vaya después de OptiFine pero incluir la palabra OptiFine
-                    if (version.includes("OptiFine_")) {
-                        // Usa una expresión regular para eliminar todo después de "OptiFine" y agrega "OptiFine"
-                        let version_optifine = version.replace(/OptiFine.*$/, "OptiFine");
-                        option.value = version + `-extra`;
-                        option.innerHTML = version_optifine;
-                        versiones.appendChild(option);
-                    } else {
-                        option.value = version + `-extra`;
-                        option.innerHTML = version;
-                        versiones.appendChild(option);
-                    }
-                } else {
-                    let option = document.createElement("option");
-                    option.value = version + ``;
-                    option.innerHTML = version + "";
-                    versiones.appendChild(option);
-                }
-            }
-        } catch { }
     }
 
     async CargarMods() {
@@ -1827,5732 +2754,407 @@ class Home {
             "BotonUnirseServidorDiscord"
         );
         BotonUnirseServidorDiscord.addEventListener("click", function () {
-            window.open("https://discord.gg/tecno-bros-885235460178342009", "_blank");
+            const os = require("os");
+            const shell = require("electron").shell;
+
+            if (os.platform() === "win32") {
+                shell.openExternal("https://discord.gg/tecno-bros-885235460178342009");
+            } else {
+                window.open(
+                    "https://discord.gg/tecno-bros-885235460178342009",
+                    "_blank"
+                );
+            }
         });
+
+        document
+            .getElementById("openBattlyFolderButton")
+            .addEventListener("click", async () => {
+                shell.openPath(`${dataDirectory}\\.battly`).then(async () => {
+                    new Alert().ShowAlert({
+                        icon: "success",
+                        title: await window.getString('home.battlyFolderOpened') || 'Carpeta de Battly abierta',
+                    });
+                });
+            });
     }
 
     async initConfig() {
-        let config = this.BattlyConfig;
-        let config_json = JSON.stringify(config);
-        fs.mkdirSync(
-            `${dataDirectory}/${process.platform == "darwin"
-                ? this.config.dataDirectory
-                : `.${this.config.dataDirectory}`
-            }`, {
-            recursive: true,
-        }
-        );
-        fs.mkdirSync(
-            `${dataDirectory}/${process.platform == "darwin"
-                ? this.config.dataDirectory
-                : `.${this.config.dataDirectory}`
-            }/versions`, {
-            recursive: true,
-        }
-        );
+        let opened = false;
+        let moreSettingsBtn = document.getElementById("more-settings-btn");
+        moreSettingsBtn.addEventListener("click", () => {
+            const moreOptions = document.querySelector(".more-options");
+            const moreSettingsIcon = document.querySelector("#more-settings-btn i");
+            if (opened) {
+                moreOptions.style.transition =
+                    "max-height 0.3s ease-in, opacity 0.3s ease-in, visibility 0s 0.3s";
+                moreOptions.classList.remove("active");
+                moreSettingsIcon.style.transform = "rotate(0deg)";
+            } else {
+                moreOptions.style.transition =
+                    "max-height 0.3s ease-out, opacity 0.3s ease-out, visibility 0s";
+                moreOptions.classList.add("active");
+                moreSettingsIcon.style.transform = "rotate(180deg)";
+            }
+            opened = !opened;
 
-        let versionsConfig = this.Versions;
-        let config_json_versions = JSON.stringify(versionsConfig);
-        fs.mkdirSync(
-            `${dataDirectory}/${process.platform == "darwin"
-                ? this.config.dataDirectory
-                : `.${this.config.dataDirectory}`
-            }`, {
-            recursive: true,
+            document.addEventListener("click", (e) => {
+                if (
+                    !moreSettingsBtn.contains(e.target) &&
+                    !moreOptions.contains(e.target)
+                ) {
+                    moreOptions.style.transition =
+                        "max-height 0.3s ease-in, opacity 0.3s ease-in, visibility 0s 0.3s";
+                    moreOptions.classList.remove("active");
+                    moreSettingsIcon.style.transform = "rotate(0deg)";
+                    opened = false;
+                }
+            });
+        });
+
+        const slider = document.querySelector(".home-online-friends");
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+        let velX = 0;
+        let momentumID;
+
+        slider.addEventListener("mousedown", (e) => {
+            isDown = true;
+            slider.classList.add("active");
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+
+            document.querySelectorAll(".online-friend").forEach((friend) => {
+                friend.style.cursor = "grabbing";
+            });
+            cancelMomentumTracking();
+        });
+
+        slider.addEventListener("mouseleave", () => {
+            isDown = false;
+            slider.classList.remove("active");
+
+            document.querySelectorAll(".online-friend").forEach((friend) => {
+                friend.style.cursor = "pointer";
+            });
+
+            beginMomentumTracking();
+        });
+
+        slider.addEventListener("mouseup", () => {
+            isDown = false;
+            slider.classList.remove("active");
+
+            document.querySelectorAll(".online-friend").forEach((friend) => {
+                friend.style.cursor = "pointer";
+            });
+
+            beginMomentumTracking();
+        });
+
+        slider.addEventListener("mousemove", (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 1.1;
+            velX = walk - (slider.scrollLeft - scrollLeft);
+            slider.scrollLeft = scrollLeft - walk;
+        });
+
+        function beginMomentumTracking() {
+            cancelMomentumTracking();
+            momentumID = requestAnimationFrame(momentumLoop);
         }
-        );
 
-        document.getElementById("instancias-btn").innerHTML = `<span><i class="fa-solid fa-folder"></i> ${langs.instances}</span>`;
-        document.getElementById("download-btn").innerHTML = `<span><i class="fa-solid fa-cloud-arrow-down"></i> ${langs.download}</span>`;
-        document.getElementById("play-btn").innerHTML = `<span>${langs.play} <i class="fa-solid fa-circle-play"></i></span>`;
-        document.getElementById("news-battly").innerHTML = `${langs.news_battly}`;
-        document.getElementById("status-battly").innerHTML = `${langs.status_battly}`;
-        document.getElementById("playing-now-text").innerHTML = `${langs.playing_now_text}`;
-        document.getElementById("playing-now-body").innerHTML = `${langs.playing_now_body}`;
-        document.getElementById("ads-text").innerHTML = `${langs.ads_text}`;
+        function cancelMomentumTracking() {
+            cancelAnimationFrame(momentumID);
+        }
 
-        /* settings */
-        document.getElementById("accounts-btn").innerHTML = `${langs.accounts_btn}`;
-        document.getElementById("java-btn").innerHTML = `${langs.java_btn}`;
-        document.getElementById("ram-btn").innerHTML = `${langs.ram_btn}`;
-        document.getElementById("launcher-btn").innerHTML = `${langs.launcher_btn}`;
-        document.getElementById("theme-btn").innerHTML = `${langs.theme_btn}`;
-        document.getElementById("background-btn").innerHTML = `${langs.background_btn}`;
-        document.getElementById("save-btn").innerHTML = `${langs.save_btn}`;
-        document.getElementById("account-information").innerHTML = `${langs.account_information}`;
-        document.getElementById("mc-id-text").innerHTML = `${langs.mc_id_text}`;
-        document.getElementById("mostrarskin-userinfo-btn").innerHTML = `${langs.showskin_userinfo_btn}`;
-        document.getElementById("eliminarcuenta-userinfo-btn").innerHTML = `${langs.deleteaccount_userinfo_btn}`;
-        document.getElementById("establecer-skin").innerHTML = `${langs.set_skin}`;
-        document.getElementById("cerrar-userinfo-btn").innerHTML = `${langs.close}`;
-        document.getElementById("my-accounts").innerHTML = `${langs.my_accounts}`;
-        document.getElementById("add-account-text").innerHTML = `${langs.add_account_text}`;
-        document.getElementById("java-settings").innerHTML = `${langs.java_settings}`;
-        document.getElementById("java-text-info").innerHTML = `${langs.java_text_info}`;
-        document.getElementById("java-text-info2").innerHTML = `${langs.java_text_info2}`;
-        document.getElementById("ram-settings").innerHTML = `${langs.ram_settings}`;
-        document.getElementById("ram-text-info").innerHTML = `${langs.ram_text_info}`;
-        document.getElementById("of-ram").innerHTML = `${langs.of_ram}`;
-        document.getElementById("of-ram-disponible").innerHTML = `${langs.of_ram_disponible}`;
-        document.getElementById("you-have-a-total").innerHTML = `${langs.you_have_a_total}`;
-        document.getElementById("ram-text-info").innerHTML = `${langs.ram_text_info}`;
-        document.getElementById("battly-settings").innerHTML = `${langs.battly_settings}`;
-        document.getElementById("battly-settings-information").innerHTML = `${langs.battly_settings_information}`;
-        document.getElementById("minimalize-battly").innerHTML = `${langs.minimalize_battly}`;
-        document.getElementById("keep-battly-opened").innerHTML = `${langs.keep_battly_opened}`;
-        document.getElementById("obtener-socketid").innerHTML = `${langs.get_socketid}`;
-        document.getElementById("battly-theme").innerHTML = `${langs.battly_theme}`;
-        document.getElementById("welcome").innerHTML = `${langs.welcome}`;
-        document.getElementById("battly-theme-text").innerHTML = `${langs.battly_theme_text}`;
-        document.getElementById("change-theme-text").innerHTML = `${langs.change_theme_text}`;
-        document.getElementById("buttons-color").innerHTML = `${langs.buttons_color}`;
-        document.getElementById("bottom-bar-text").innerHTML = `${langs.bottom_bar_text}`;
-        document.getElementById("bottom-bar-opacity").innerHTML = `${langs.bottom_bar_opacity}`;
-        document.getElementById("starting-music").innerHTML = `${langs.starting_music}`;
-        document.getElementById("resize-image-text").innerHTML = `${langs.resize_image_text}`;
-        document.getElementById("establecer-fondo").innerHTML = `${langs.set_background_text}`;
-        document.getElementById("cerrar-preview-btn").innerHTML = `${langs.cancel}`;
-        document.getElementById("customize-background").innerHTML = `${langs.customize_background}`;
-        document.getElementById("resize-background").innerHTML = `${langs.resize_background}`;
-        document.getElementById("background-image-text").innerHTML = `${langs.background_image_text}`;
-        document.getElementById("restablecer-fondo").innerHTML = `${langs.reset_background}`;
-        document.getElementById("select-a-background").innerHTML = `${langs.select_a_background}`;
-        document.getElementById("button_instalar_modpack").innerHTML = `${langs.install_modpack}`;
-        document.getElementById("volver").innerHTML = `${langs.return}`;
-        document.getElementById("input_buscar_mods").placeholder = `${langs.search_mods}`;
-        document.getElementById("add-friends").innerHTML = `${langs.add_friend}`;
-        document.getElementById("solicitudes").innerHTML = `${langs.show_requests}`;
-        document.getElementById("friends-volver-btn").innerHTML = `${langs.return}`;
-        document.getElementById("welcome_battly_social").innerHTML = `${langs.welcome_battly_social}`;
-        document.getElementById("friends_list_text").innerHTML = `${langs.friends_list_text}`;
-        document.getElementById("start_minecraft_text").innerHTML = `${langs.start_minecraft_text}`;
-        document.getElementById("textInfo").innerHTML = `${langs.select_the_version_that_you_want}`;
-        document.getElementById("select_a_version").innerHTML = `${langs.select_a_version}`;
-        document.getElementById("show-playlists").innerHTML = `${langs.playlists}`;
-        document.getElementById("return-btn").innerHTML = `${langs.return}`;
-        document.getElementById("playing-now").innerHTML = `${langs.playing_now}`;
-        document.getElementById("nombre-de-cancion").placeholder = `${langs.song_name}`;
-        document.getElementById("reproducir-btn").innerHTML = `${langs.search_song}`;
-        document.getElementById("save-playlist").innerHTML = `${langs.save_playlist}`;
-        document.getElementById("cancel-btn-login").innerHTML = `${langs.cancel}`;
-        //document.getElementById("cancel_login_two").innerHTML = `${langs.cancel}`;
-        document.getElementById("lost_your_account").innerHTML = `${langs.lost_your_account}`;
-        document.getElementById("recover_it_here").innerHTML = `${langs.recover_it_here}`;
-        document.getElementById("username_text").placeholder = `${langs.username}`;
-        document.getElementById("password_text").placeholder = `${langs.password}`;
-        document.getElementById("register_open_btn").innerHTML = `${langs.register_open_btn}`;
-        document.getElementById("login-text").innerHTML = `${langs.login}`;
-        document.getElementById("you-dont-have-account").innerHTML = `${langs.you_dont_have_account}`;
-        document.getElementById("login-btn").innerHTML = `${langs.login}`;
+        function momentumLoop() {
+            slider.scrollLeft -= velX;
+            velX *= 0.95;
+            if (Math.abs(velX) > 0.5) {
+                momentumID = requestAnimationFrame(momentumLoop);
+            }
+        }
+        if (!fs.existsSync(`${dataDirectory}/.battly`)) {
+            fs.mkdirSync(`${dataDirectory}/.battly`);
+        } else if (!fs.existsSync(`${dataDirectory}/.battly/instances`)) {
+            fs.mkdirSync(`${dataDirectory}/.battly/instances`);
+        } else if (!fs.existsSync(`${dataDirectory}/.battly/versions`)) {
+            fs.mkdirSync(`${dataDirectory}/.battly/versions`);
+        }
+
+        await window.stringLoader.loadStrings();
+
+        window.stringLoader.applyStrings();
+
+        const tooltips = {
+            "boton_abrir_mods": window.stringLoader.getString("tooltips.mods"),
+            "music-btn": window.stringLoader.getString("tooltips.music"),
+            "instancias-btn": window.stringLoader.getString("tooltips.instances"),
+            "download-btn": window.stringLoader.getString("tooltips.download"),
+            "play-btn": window.stringLoader.getString("tooltips.play")
+        };
+
+        Object.keys(tooltips).forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                const spanElement = element.querySelector(".button-span, .play-button-span");
+                if (spanElement) {
+                    spanElement.innerHTML = tooltips[id];
+                }
+            }
+        });
+
+        const inputElements = document.querySelectorAll('input[placeholder]');
+        inputElements.forEach(input => {
+            if (input.id === 'input_buscar_mods') {
+                input.placeholder = window.stringLoader.getString("mods.searchMods");
+            }
+        });
 
 
     }
 
     async initNews() {
-        let news = document.querySelector(".news-list");
-        if (this.news) {
-            if (!this.news.length) {
+        let news = document.getElementById("battly-news-div");
+        let thiss = this;
+
+        async function LoadNews() {
+            if (thiss.news) {
+                if (!thiss.news.length) {
+                    let blockNews = document.createElement("div");
+                    blockNews.classList.add("news-block", "opacity-1");
+                    blockNews.innerHTML = `
+      <div class="new-panel">
+        <div class="new-panel-top">
+          <p class="new-panel-title">${await window.getString('homePanel.noNewsAvailable') || 'No news currently available.'}</p>
+        </div>
+        <div class="new-panel-bottom">
+          <p class="new-panel-description">${await window.getString('homePanel.followNews') || 'You can follow all news related to the server here.'}</p>
+        </div>
+      </div>`;
+                    news.appendChild(blockNews);
+                } else {
+                    for (let News of thiss.news) {
+                        let date = await thiss.getdate(News.publish_date);
+                        let blockNews = document.createElement("div");
+                        blockNews.classList.add("news-block");
+                        blockNews.innerHTML = `
+      <div class="new-panel">
+        <div class="new-panel-top">
+          <p class="new-panel-title">${News.title}</p>
+          <div class="new-panel-date">
+            <p class="new-panel-date-day">${date.day}</p>
+            <p class="new-panel-date-month">${date.month}</p>
+          </div>
+        </div>
+        <div class="new-panel-bottom">
+          <p class="new-panel-description">${News.content.replace(
+                            /\n/g,
+                            "</br>"
+                        )}</p>
+          <p class="new-panel-author"><span><i class="fa-solid fa-hammer"></i> ${News.author
+                            }</span></p>
+        </div>
+      </div>`;
+                        news.appendChild(blockNews);
+                    }
+                }
+            } else {
                 let blockNews = document.createElement("div");
                 blockNews.classList.add("news-block", "opacity-1");
                 blockNews.innerHTML = `
-                    <div class="news-header">
-                        <div class="header-text">
-                            <div class="title_">No hay noticias disponibles actualmente.</div>
-                        </div>
-                    </div>
-                    <div class="news-content">
-                        <div class="bbWrapper">
-                            <p>Puedes seguir todas las noticias relacionadas con el servidor aquí.</p>
-                        </div>
-                    </div>`;
+      <div class="news-header">
+        <div class="header-text">
+          <div class="title">Error</div>
+        </div>
+      </div>
+      <div class="news-content">
+        <div class="bbWrapper">
+          <p>${await window.getString('homePanel.cannotConnectToNews') || 'Cannot connect to news server.</br>Please check your internet connection'}</p>
+      </div>
+    </div>`;
                 news.appendChild(blockNews);
+            }
+
+            if (thiss.BattlyConfig.adv === true) {
+                console.log("Mostrar aviso de publicidad");
+                console.log(thiss.BattlyConfig);
+                const advStatus = thiss.BattlyConfig.advStatus;
+                const advText = thiss.BattlyConfig.advText;
+
+                document.getElementById("warning-status").classList.add(advStatus);
+                document.getElementById("warning-status").style.display = "block";
+
+                document.getElementById("warning-status-message").innerHTML = advText;
             } else {
-                for (let News of this.news) {
-                    let date = await this.getdate(News.publish_date);
-                    let blockNews = document.createElement("div");
-                    blockNews.classList.add("news-block");
-                    blockNews.innerHTML = `
-                        <div class="news-header">
-                            <div class="header-text">
-                                <div class="title_">${News.title}</div>
-                            </div>
-                            <div class="date">
-                                <div class="day">${date.day}</div>
-                                <div class="month">${date.month}</div>
-                            </div>
-                        </div>
-                        <div class="news-content">
-                            <div class="bbWrapper">
-                                <p>${News.content.replace(/\n/g, "</br>")}</p>
-                                <p class="news-author"><span><i class="fa-solid fa-hammer"></i> ${News.author
-                        }</span></p>
-                            </div>
-                        </div>`;
-                    news.appendChild(blockNews);
+                document.getElementById("warning-status").style.display = "none";
+            }
+        }
+
+        let totalNewsLoaded = 0;
+
+
+        news.addEventListener("scroll", async () => {
+            const scrollPosition = Math.round(news.scrollTop + news.clientHeight);
+            const scrollThreshold = Math.round(news.scrollHeight);
+
+            console.log(`${scrollPosition} >= ${scrollThreshold}`);
+
+            if (scrollPosition >= scrollThreshold) {
+                if (document.getElementById("typeOfNews").value === "minecraft") {
+                    totalNewsLoaded += 10;
+                    console.log(totalNewsLoaded);
+                    LoadMinecraftNews();
                 }
             }
-        } else {
-            let blockNews = document.createElement("div");
-            blockNews.classList.add("news-block", "opacity-1");
-            blockNews.innerHTML = `
-                <div class="news-header">
-                    <div class="header-text">
-                        <div class="title">Error.</div>
-                    </div>
-                </div>
-                <div class="news-content">
-                    <div class="bbWrapper">
-                        <p>No se puede contactar con el servidor de noticias.</br>Por favor, compruebe su configuración.</p>
-                    </div>
-                </div>`;
-            // news.appendChild(blockNews);
-        }
-    }
-
-    async initLaunch() {
-        //crear el archivo launcher_profiles.json en la ruta de main del launcher
-        let launcherProfiles;
-        let accounts = await this.database.getAll("accounts");
-        let accountsSelected = await this.database.get("1234", "accounts-selected");
-
-        let profiles = {};
-        let profiles_ = [];
-        for (let account of accounts) {
-            profiles_.push(account);
-        }
-
-        for (let i = 0; i < profiles_.length; i++) {
-            let profileName = profiles_[i].value.name;
-            profiles[profiles_[i].value.uuid] = {
-                created: Date.now(),
-                icon: "Grass",
-                lastUsed: "1970-01-02T00:00:00.000Z",
-                lastVersionId: "latest-release",
-                name: "",
-                type: "latest-release",
-            };
-        }
-
-        launcherProfiles = {
-            profiles: profiles,
-            settings: {
-                crashAssistance: true,
-                enableAdvanced: false,
-                enableAnalytics: true,
-                enableHistorical: false,
-                enableReleases: true,
-                enableSnapshots: false,
-                keepLauncherOpen: false,
-                profileSorting: "ByLastPlayed",
-                showGameLog: false,
-                showMenu: false,
-                soundOn: false,
-            },
-            version: 3,
-        };
-
-        let launcherProfilesJson = JSON.stringify(launcherProfiles);
-        fs.mkdirSync(
-            `${dataDirectory}/${process.platform == "darwin"
-                ? this.config.dataDirectory
-                : `.${this.config.dataDirectory}`
-            }`, {
-            recursive: true,
-        }
-        );
-        fs.writeFileSync(
-            path.join(
-                `${dataDirectory}/${process.platform == "darwin"
-                    ? this.config.dataDirectory
-                    : `.${this.config.dataDirectory}`
-                }`,
-                "launcher_profiles.json"
-            ),
-            launcherProfilesJson
-        );
-
-        let data = this.BattlyConfig;
-        let new_version = data.new_version;
-        let new_version_message = data.new_version_message;
-        let new_version_news = data.new_version_news;
-        let new_version_html = data.new_version_html;
-
-        if (new_version == true) {
-            const Swal_ = require("./assets/js/libs/sweetalert/sweetalert2.all.min");
-
-            Swal_.fire({
-                title: new_version_message,
-                html: new_version_html,
-                confirmButtonText: langs.accept,
-            });
-        }
-
-        let mcModPack;
-
-        document.getElementById("play-btn").addEventListener("click", async () => {
-            let modalStartVersions = document.getElementById("modalStartVersion");
-            modalStartVersions.classList.add("is-active");
         });
 
-        document
-            .getElementById("closeStartVersion")
-            .addEventListener("click", async () => {
-                let modalStartVersions = document.getElementById("modalStartVersion");
-                modalStartVersions.classList.remove("is-active");
-            });
-
-        document
-            .getElementById("cancelStartVersion")
-            .addEventListener("click", async () => {
-                let modalStartVersions = document.getElementById("modalStartVersion");
-                modalStartVersions.classList.remove("is-active");
-            });
-
-        let data_versions = this.Versions;
-        let data_versions_mojang = this.VersionsMojang;
-
-        document
-            .getElementById("listaDeVersiones")
-            .addEventListener("change", async () => {
-                let version_selected =
-                    document.getElementById("listaDeVersiones").value;
-                let versiones = data_versions.versions;
-
-                //comprobar si la versión es compatible con forge, fabric o quilt, obteniendo las versiones, ejemplo:
-                /* {"versions":[{"version":"1.20.1","name":"1.20.1"},{"version":"1.20.1-forge","name":"1.20.1 - Forge"},{"version":"1.20.1-fabric","name":"1.20.1 - Fabric"},{"version":"1.20.1-quilt","name":"1.20.1 - Quilt"} ]} */
-                let radioVanilla = document.getElementById("radioVanilla");
-                let radioForge = document.getElementById("radioForge");
-                let radioFabric = document.getElementById("radioFabric");
-                let radioQuilt = document.getElementById("radioQuilt");
-
-                let versions_vanilla = [];
-                let versiones_compatible_forge = [];
-                let versiones_compatible_fabric = [];
-                let versiones_compatible_quilt = [];
-
-                for (let i = 0; i < versiones.length; i++) {
-                    let version = versiones[i].version;
-                    if (version.endsWith("-forge")) {
-                        versiones_compatible_forge.push(versiones[i].realVersion);
-                    } else if (version.endsWith("-fabric")) {
-                        versiones_compatible_fabric.push(versiones[i].realVersion);
-                    } else if (version.endsWith("-quilt")) {
-                        versiones_compatible_quilt.push(versiones[i].realVersion);
-                    }
-                }
-
-                for (let i = 0; i < data_versions_mojang.versions.length; i++) {
-                    let version = data_versions_mojang.versions[i].id;
-                    versions_vanilla.push(version);
-                }
-
-                if (
-                    versiones_compatible_forge.includes(version_selected) &&
-                    versiones_compatible_fabric.includes(version_selected) &&
-                    versiones_compatible_quilt.includes(version_selected)
-                ) {
-                    document.getElementById("tipo-de-versiones").style.display = "";
-                    radioVanilla.style.display = "";
-                    radioForge.style.display = "";
-                    radioFabric.style.display = "";
-                    radioQuilt.style.display = "";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else if (
-                    versiones_compatible_forge.includes(version_selected) &&
-                    versiones_compatible_fabric.includes(version_selected)
-                ) {
-                    document.getElementById("tipo-de-versiones").style.display = "";
-                    radioVanilla.style.display = "";
-                    radioForge.style.display = "";
-                    radioFabric.style.display = "";
-                    radioQuilt.style.display = "none";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else if (
-                    versiones_compatible_forge.includes(version_selected) &&
-                    versiones_compatible_quilt.includes(version_selected)
-                ) {
-                    document.getElementById("tipo-de-versiones").style.display = "";
-                    radioVanilla.style.display = "";
-                    radioForge.style.display = "";
-                    radioFabric.style.display = "none";
-                    radioQuilt.style.display = "";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else if (
-                    versiones_compatible_fabric.includes(version_selected) &&
-                    versiones_compatible_quilt.includes(version_selected)
-                ) {
-                    document.getElementById("tipo-de-versiones").style.display = "";
-                    radioVanilla.style.display = "";
-                    radioForge.style.display = "none";
-                    radioFabric.style.display = "";
-                    radioQuilt.style.display = "";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else if (versiones_compatible_forge.includes(version_selected)) {
-                    document.getElementById("tipo-de-versiones").style.display = "";
-                    radioVanilla.style.display = "";
-                    radioForge.style.display = "";
-                    radioFabric.style.display = "none";
-                    radioQuilt.style.display = "none";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else if (versiones_compatible_fabric.includes(version_selected)) {
-                    document.getElementById("tipo-de-versiones").style.display = "";
-                    radioVanilla.style.display = "";
-                    radioForge.style.display = "none";
-                    radioFabric.style.display = "";
-                    radioQuilt.style.display = "none";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else if (versiones_compatible_quilt.includes(version_selected)) {
-                    document.getElementById("tipo-de-versiones").style.display = "";
-                    radioVanilla.style.display = "";
-                    radioForge.style.display = "none";
-                    radioFabric.style.display = "none";
-                    radioQuilt.style.display = "";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else if (versions_vanilla.includes(version_selected)) {
-                    document.getElementById("tipo-de-versiones").style.display = "";
-                    radioVanilla.style.display = "";
-                    radioForge.style.display = "none";
-                    radioFabric.style.display = "none";
-                    radioQuilt.style.display = "none";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else if (version_selected === "dx") {
-                    document.getElementById("tipo-de-versiones").display = "none";
-                    radioVanilla.style.display = "none";
-                    radioForge.style.display = "none";
-                    radioFabric.style.display = "none";
-                    radioQuilt.style.display = "none";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "none";
-                } else {
-                    document.getElementById("tipo-de-versiones").display = "none";
-                    radioVanilla.style.display = "none";
-                    radioForge.style.display = "none";
-                    radioFabric.style.display = "none";
-                    radioQuilt.style.display = "none";
-                    let footermodaliniciarversion = document.getElementById(
-                        "footermodaliniciarversion"
-                    );
-                    footermodaliniciarversion.style.display = "";
-                }
-            });
-
-        //radio con name loader
-        let radio = document.getElementsByName("loader");
-        radio.forEach((element) => {
-            element.addEventListener("click", async () => {
-                let footermodaliniciarversion = document.getElementById(
-                    "footermodaliniciarversion"
-                );
-                footermodaliniciarversion.style.display = "";
-            });
+        document.getElementById("header-text-to-add").addEventListener("click", () => {
+            const os = require("os");
+            if (os.platform() === "win32") {
+                shell.openExternal("https://battlylauncher.com/premium?utm_source=launcher&utm_medium=header&utm_campaign=premium");
+            } else {
+                window.open("https://battlylauncher.com/premium?utm_source=launcher&utm_medium=header&utm_campaign=premium", "_blank");
+            }
         });
 
-        document
-            .getElementById("startStartVersion")
-            .addEventListener("click", async () => {
-                let version = document.getElementById("listaDeVersiones").value;
-                let versionType;
-                let progressBar1 = document.getElementById("progressBar1_");
-                let modalDiv1 = document.getElementById("modalStartVersion");
 
-                let urlpkg = pkg.user ? `${pkg.url}/${pkg.user}` : pkg.url;
-                let uuid = (await this.database.get("1234", "accounts-selected")).value;
-                let account = (await this.database.get(uuid.selected, "accounts")).value;
-                let ram = (await this.database.get("1234", "ram")).value;
-                let Resolution = (await this.database.get("1234", "screen")).value;
-                let launcherSettings = (await this.database.get("1234", "launcher")).value;
+        async function LoadMinecraftNews() {
+            function compareDates(a, b) {
+                let dateA = new Date(a.date);
+                let dateB = new Date(b.date);
+                return dateB - dateA;
+            }
 
-                let isForgeCheckBox = false;
-                let isFabricCheckBox = false;
-                let isQuiltCheckBox = false;
+            function convertDates(date) {
+                let date_ = new Date(date);
+                let day = date_.getDate();
+                let month = date_.getMonth() + 1;
+                let year = date_.getFullYear();
+                return `${day} / ${month} / ${year}`;
+            }
 
-                let settings_btn = document.getElementById("settings-btn");
-                let select_versions = document.getElementById("select-version");
-                let mods_btn = document.getElementById("boton_abrir_mods");
-                let discord_btn = document.getElementById("BotonUnirseServidorDiscord");
-
-                let footermodaliniciarversion = document.getElementById(
-                    "footermodaliniciarversion"
-                );
-                footermodaliniciarversion.style.display = "none";
-
-                let textInfo = document.getElementById("textInfo");
-                textInfo.innerHTML = langs.starting_version_can_take;
-
-                let radio = document.getElementsByName("loader");
-
-                radio.forEach((element) => {
-                    if (element.checked) {
-                        if (version.endsWith("-extra")) {
-                            versionType = "extra";
-                        } else {
-                            versionType = element.value;
-                        }
-                    }
-                });
-
-                if (versionType === "vanilla") {
-                    version = version;
-                } else if (versionType === "fabric") {
-                    version += `-fabric`;
-                } else if (versionType === "forge") {
-                    version += `-forge`;
-                } else if (versionType === "quilt") {
-                    version += `-quilt`;
-                } else {
-                }
-
-                let version_real;
-                if (version.endsWith("-forge")) {
-                    version_real = version.replace("-forge", "");
-                } else if (version.endsWith("-fabric")) {
-                    version_real = version.replace("-fabric", "");
-                } else if (version.endsWith("-quilt")) {
-                    version_real = version.replace("-quilt", "");
-                } else if (version.endsWith("-extra")) {
-                    version_real = version.replace("-extra", "");
-                } else {
-                    version_real = version;
-                }
-
-                if (version.endsWith("-forge")) {
-                    version = version.replace("-forge", "");
-                    isForgeCheckBox = true;
-                    isFabricCheckBox = false;
-                    isQuiltCheckBox = false;
-                } else if (version.endsWith("-fabric")) {
-                    version = version.replace("-fabric", "");
-                    isFabricCheckBox = true;
-                    isForgeCheckBox = false;
-                    isQuiltCheckBox = false;
-                } else if (version.endsWith("-quilt")) {
-                    version = version.replace("-quilt", "");
-                    isQuiltCheckBox = true;
-                    isForgeCheckBox = false;
-                    isFabricCheckBox = false;
-                }
-
-                let type;
-                if (isForgeCheckBox == true) {
-                    type = "forge";
-                    mcModPack = "forge";
-                } else if (isFabricCheckBox == true) {
-                    type = "fabric";
-                    mcModPack = "fabric";
-                } else if (isQuiltCheckBox == true) {
-                    type = "quilt";
-                    mcModPack = "quilt";
-                }
-
-                //hacer un json.parse del archivo de versiones y obtener el dato "assets"
-
-                //comprobar si existe el archivo de versiones
-
-                // Si la versión acaba con -extra hacer let assets = JSON.parse(fs.readFileSync(`${dataDirectory}/.battly/versions/${version_real}/${version_real}.json`)).assets;
-                // si no, ignorar
-                let assets;
-                let versionData;
-                if (version_real === "1.8") {
-                    assets = "1.8";
-                    versionData = {
-                        number: assets,
-                        custom: version_real,
-                        type: "release",
-                    };
-                } else if (
-                    version.endsWith("-extra") &&
-                    !version.includes("OptiFine") &&
-                    !version_real.includes("LabyMod")
-                ) {
-                    assets = JSON.parse(
-                        fs.readFileSync(
-                            `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                            }/versions/${version_real}/${version_real}.json`
-                        )
-                    ).assets;
-                    versionData = {
-                        number: assets,
-                        custom: version_real,
-                        type: "release",
-                    };
-                } else if (version.includes("OptiFine") && version.endsWith("-extra")) {
-                    assets = JSON.parse(
-                        fs.readFileSync(
-                            `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                            }/versions/${version_real}/${version_real}.json`
-                        )
-                    ).inheritsFrom;
-                    versionData = {
-                        number: assets,
-                        custom: version_real,
-                        type: "release",
-                    };
-                } else if (version.includes("LabyMod") && version.endsWith("-extra")) {
-                    assets = JSON.parse(
-                        fs.readFileSync(
-                            `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                            }/versions/${version_real}/${version_real}.json`
-                        )
-                    )._minecraftVersion;
-                    versionData = {
-                        number: version_real,
-                        type: "release",
-                    };
-                } else if (
-                    version_real.endsWith("-forge") ||
-                    version_real.endsWith("-fabric") ||
-                    version_real.endsWith("-quilt")
-                ) {
-                    versionData = version;
-                } else {
-                    versionData = version_real;
-                }
-
-                let playBtn = document.getElementById("download-btn");
-                let info = document.getElementById("textInfoStatus");
-                let logTextArea1 = document.getElementById("logTextArea1_");
-
-                if (Resolution.screen.width == "<auto>") {
-                    screen = false;
-                } else {
-                    screen = {
-                        width: Resolution.screen.width,
-                        height: Resolution.screen.height,
-                    };
-                }
-
-                let opts;
-
-                let javapath = localStorage.getItem("java-path");
-                if (!javapath || javapath == null || javapath == undefined) {
-                    opts = {
-                        url: this.config.game_url === "" || this.config.game_url === undefined ?
-                            `${urlpkg}/files` :
-                            this.config.game_url,
-                        authorization: account,
-                        authenticator: account,
-                        detached: false,
-                        timeout: 10000,
-                        root: `${dataDirectory}/.battly`,
-                        path: `${dataDirectory}/.battly`,
-                        overrides: {
-                            detached: false,
-                            screen: screen,
-                        },
-                        downloadFileMultiple: 20,
-                        //javaPath: "C:\\Users\\ilyas\\Desktop\\RND Projects\\Java\\bin\\java.exe",
-                        version: versionData,
-                        loader: {
-                            type: type,
-                            build: this.BattlyConfig.loader.build,
-                            enable: isForgeCheckBox ?
-                                true :
-                                isFabricCheckBox ?
-                                    true :
-                                    isQuiltCheckBox ?
-                                        true :
-                                        false,
-                        },
-                        verify: false,
-                        ignored: ["loader"],
-                        java: false,
-                        memory: {
-                            min: `${ram.ramMin * 1024}M`,
-                            max: `${ram.ramMax * 1024}M`,
-                        },
-                    };
-                } else {
-                    if (version.endsWith("-extra")) {
-                        opts = {
-                            url: this.config.game_url === "" || this.config.game_url === undefined ?
-                                `${urlpkg}/files` :
-                                this.config.game_url,
-                            authorization: account,
-                            authenticator: account,
-                            detached: false,
-                            timeout: 10000,
-                            root: `${dataDirectory}/.battly`,
-                            path: `${dataDirectory}/.battly`,
-                            overrides: {
-                                detached: false,
-                                screen: screen,
-                            },
-                            downloadFileMultiple: 20,
-                            javaPath: javapath,
-                            version: versionData,
-                            loader: {
-                                type: type,
-                                build: this.BattlyConfig.loader.build,
-                                enable: isForgeCheckBox ?
-                                    true :
-                                    isFabricCheckBox ?
-                                        true :
-                                        isQuiltCheckBox ?
-                                            true :
-                                            false,
-                            },
-                            verify: false,
-                            ignored: ["loader"],
-                            java: false,
-                            memory: {
-                                min: `${ram.ramMin * 1024}M`,
-                                max: `${ram.ramMax * 1024}M`,
-                            },
-                        };
-                    } else {
-                        opts = {
-                            url: this.config.game_url === "" || this.config.game_url === undefined ?
-                                `${urlpkg}/files` :
-                                this.config.game_url,
-                            authorization: account,
-                            authenticator: account,
-                            detached: false,
-                            timeout: 10000,
-                            root: `${dataDirectory}/.battly`,
-                            path: `${dataDirectory}/.battly`,
-                            overrides: {
-                                detached: false,
-                                screen: screen,
-                            },
-                            downloadFileMultiple: 20,
-                            //javaPath: "C:\\Users\\ilyas\\Desktop\\RND Projects\\Java\\bin\\java.exe",
-                            version: versionData,
-                            loader: {
-                                type: type,
-                                build: this.BattlyConfig.loader.build,
-                                enable: isForgeCheckBox ?
-                                    true :
-                                    isFabricCheckBox ?
-                                        true :
-                                        isQuiltCheckBox ?
-                                            true :
-                                            false,
-                            },
-                            verify: false,
-                            ignored: ["loader"],
-                            java: false,
-                            memory: {
-                                min: `${ram.ramMin * 1024}M`,
-                                max: `${ram.ramMax * 1024}M`,
-                            },
-                        };
-                    }
-                }
-
-                const launch = new Client();
-                const launch_core = new Launch();
-
-                try {
-                    if (version === "1.8") {
-                        await launch.launch(opts);
-                        document.getElementById("carga-de-versiones").style.display = "";
-                    } else if (
-                        version_real.endsWith("-forge") ||
-                        version_real.endsWith("-fabric") ||
-                        version_real.endsWith("-quilt")
-                    ) {
-                        await launch_core.Launch(opts);
-                        document.getElementById("carga-de-versiones").style.display = "";
-                    } else if (version.endsWith("-extra")) {
-                        launch.launch(opts);
-                        document.getElementById("carga-de-versiones").style.display = "";
-                    } else {
-                        await launch_core.Launch(opts);
-                        document.getElementById("carga-de-versiones").style.display = "";
-                    }
-                } catch (error) {
-                    setTimeout(() => {
-                        playBtn.style.display = "";
-                        info.style.display = "none";
-                        progressBar1.style.display = "none";
-                    }, 3000);
-                    console.log(error);
-                }
-
-                launch.on("extract", (extract) => {
-                    consoleOutput_ += `[EXTRACT] ${extract}\n`;
-                    let seMostroInstalando = false;
-                    if (seMostroInstalando) { } else {
-                        seMostroInstalando = true;
-                    }
-                });
-
-                launch.on("debug", (e) => {
-                    consoleOutput_ += `[DEBUG] ${JSON.stringify(e, null, 2)}\n`;
-                    if (e.includes("Failed to start due to TypeError")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                    if (e.includes("Downloaded and extracted natives")) {
-
-                        progressBar1.style.display = "";
-                        progressBar1.max = 100;
-                        progressBar1.value = 0;
-
-                        info.innerHTML = langs.downloading_files;
-                    }
-
-                    if (e.includes("Attempting to download Minecraft version jar")) {
-                        info.innerHTML = langs.downloading_version;
-                    }
-
-                    if (e.includes("Attempting to download assets")) {
-                        info.innerHTML = langs.downloading_assets;
-                    }
-
-                    if (e.includes("Downloaded Minecraft version jar")) {
-                        info.innerHTML = langs.downloading_libraries;
-                    }
-
-                    if (e.includes("Downloaded and extracted natives")) {
-                        info.innerHTML = langs.downloading_natives;
-                    }
-
-                    if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                    if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                    if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                    if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                    if (e.includes("Forge patcher exited with code 1")) {
-                        ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                        progressBar1.style.display = "none";
-                        info.style.display = "none";
-                        playBtn.style.display = "";
-                    }
-
-                    if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                    if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-                });
-                launch.on("data", (e) => {
-                    consoleOutput_ += `[DEBUG] ${JSON.stringify(e, null, 2)}\n`;
-                    if (e.includes("Failed to start du<e to TypeError")) {
-                        Toast.fire({
-                            icon: "error",
-                            title: "Error al iniciar Minecraft",
+            fetch("https://launchercontent.mojang.com/v2/javaPatchNotes.json", {
+                method: "GET",
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    let minecraftNews = data.entries;
+                    minecraftNews.sort(compareDates);
+                    for (let i = 0; i < totalNewsLoaded + 10 && i < minecraftNews.length; i++) {
+                        fetch(`https://launchercontent.mojang.com/v2/${minecraftNews[i].contentPath}`, {
+                            method: "GET",
+                        }).then((response) => response.json()).then((data_) => {
+                            console.log(data_);
+                            let blockNews = document.createElement("div");
+                            blockNews.classList.add("news-block");
+                            blockNews.innerHTML = `
+                    <div class="new-panel">
+                        <div class="new-panel-top">
+                            <p class="new-panel-title">${minecraftNews[i].title}</p>
+                            <div class="new-panel-date">
+                                <p class="new-panel-date-day">${convertDates(minecraftNews[i].date)}</p>
+                            </div>
+                        </div>
+                        <div class="new-panel-bottom">
+                            <p class="new-panel-description">${data_.body}</p>
+                            <p class="new-panel-author"><span><i class="fa-solid fa-hammer"></i> Mojang</span></p>
+                        </div>
+                    </div>`;
+                            news.appendChild(blockNews);
                         });
-                        progressBar1.style.display = "none";
-                        progressBar1.max = 100;
-                        progressBar1.value = 0;
-                        playBtn.style.display = "";
-                        info.style.display = "none";
-                        crasheo = true;
                     }
                 });
-
-                launch.on("progress", function (e) {
-
-                    let total = e.total;
-                    let current = e.task;
-
-                    let progress = ((current / total) * 100).toFixed(0);
-                    let total_ = 100;
-
-                    ipcRenderer.send("main-window-progress_", {
-                        total_,
-                        progress,
-                    });
-
-                    progressBar1.style.display = "";
-                    progressBar1.max = total;
-                    progressBar1.value = current;
-                });
-
-                let crasheo = false;
-
-                launch.on("estimated", (time) => {
-                    ipcRenderer.send("main-window-progress-reset");
-                    /*
-                                  let hours = Math.floor(time / 3600);
-                                  let minutes = Math.floor((time - hours * 3600) / 60);
-                                  let seconds = Math.floor(time - hours * 3600 - minutes * 60);
-                                  console.log(`${hours}h ${minutes}m ${seconds}s`);*/
-                });
-
-                let timeoutId;
-
-                launch.on("speed", (speed) => {
-                    /*
-                                                  let velocidad = speed / 1067008;
-
-                                                  if (velocidad > 0) {
-                                                      clearTimeout(timeoutId); // cancela el mensaje de alerta si la velocidad no es cero
-                                                  } else {
-                                                      timeoutId = setTimeout(() => {
-                                                          progressBar1.style.display = "none"
-                                                          progressBar1.max = 100;
-                                                          progressBar1.value = 0;
-                                                          playBtn.style.display = ""
-                                                          info.style.display = "none"
-                                                          clearTimeout(timeoutId);
-                                                          const swal  = require('sweetalert');
-                                                          crasheo = true;
-
-                                                          Toast.fire({
-                                                              title: "Error",
-                                                              text: "Error al descargar esta versión. Reinicia el launcher o inténtalo de nuevo más tarde. [ERROR: 2]",
-                                                              icon: "error",
-                                                              button: "Aceptar",
-                                                          }).then((value) => {
-                                                              if(value) {
-                                                                  ipcRenderer.send('restartLauncher')
-                                                              }
-                                                          });
-                                                          
-                                                      }, 10000);
-                                                  }*/
-                });
-
-                launch.on("patch", (patch) => {
-                    consoleOutput_ += `[INSTALANDO LOADER] ${patch}\n`;
-                    let seMostroInstalando = false;
-                    if (seMostroInstalando) { } else {
-                        logTextArea1.innerHTML = `${langs.installing_loader}...`;
-                        seMostroInstalando = true;
-                    }
-
-                    info.innerHTML = `${langs.installing_loader}...`;
-                });
-
-                let inicio = false;
-                let iniciando = false;
-                launch.on("data", async (e) => {
-                    new logger("Minecraft", "#36b030");
-                    consoleOutput_ += `[MC] ${e}\n`;
-                    if (launcherSettings.launcher.close === "close-launcher")
-                        ipcRenderer.send("main-window-hide");
-
-                    if (e.includes("Launching with arguments"))
-                        info.innerHTML = `${langs.starting_minecraft}...`;;
-
-                    if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                    if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                    if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                    if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                    if (e.includes("Forge patcher exited with code 1")) {
-                        ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                        progressBar1.style.display = "none";
-                        info.style.display = "none";
-                        playBtn.style.display = "";
-                    }
-
-                    if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                    if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (
-                        e.includes(`Setting user: ${account.name}`) ||
-                        e.includes("Launching wrapped minecraft")
-                    ) {
-                        if (inicio == false) {
-                            let typeOfVersion;
-                            if (version_real.endsWith("-forge")) {
-                                typeOfVersion = "Forge";
-                            } else if (version_real.endsWith("-fabric")) {
-                                typeOfVersion = "Fabric";
-                            } else if (version_real.endsWith("-quilt")) {
-                                typeOfVersion = "Quilt";
-                            } else {
-                                typeOfVersion = "";
-                            }
-
-
-                            if (version_real.includes("OptiFine")) {
-                                let version_optifine = version_real.substring(0, 6);
-                                version_optifine = version_optifine.replace("-", "");
-
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} OptiFine ${version_optifine}`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} OptiFine ${version_optifine}`);
-                            } else if (version_real.includes("LabyMod")) {
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} LabyMod`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} LabyMod`);
-                            } else if (version_real.includes("cmpack")) {
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} CMPack`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} CMPack`);
-                            } else {
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} ${version_real
-                                        .replace("-forge", "")
-                                        .replace("-fabric", "")
-                                        .replace("-quilt", "")} ${typeOfVersion}`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} ${version_real
-                                    .replace("-forge", "")
-                                    .replace("-fabric", "")
-                                    .replace("-quilt", "")} ${typeOfVersion}`);
-                            }
-
-                            modalDiv1.classList.remove("is-active");
-                            inicio = true;
-                            info.innerHTML = `${langs.minecraft_started_correctly}.`;
-                            logTextArea1.innerHTML = ``;
-                            textInfo.innerHTML = `Selecciona la versión que quieres abrir`;
-                            ipcRenderer.send("new-notification", {
-                                title: langs.minecraft_started_correctly,
-                                body: langs.minecraft_started_correctly_body,
-                            });
-
-                            ipcRenderer.send("main-window-progress-reset");
-                        }
-                    }
-
-                    if (e.includes("Connecting to")) {
-                        let msj = e.split("Connecting to ")[1].split("...")[0];
-                        info.innerHTML = `Conectando a ${msj}`;
-                    }
-                });
-
-                launch.on("close", (code) => {
-                    consoleOutput_ += `---------- [MC] Código de salida: ${code}\n ----------`;
-                    if (launcherSettings.launcher.close === "close-launcher")
-                        ipcRenderer.send("main-window-show");
-
-                    ipcRenderer.send('updateStatus', {
-                        status: 'online',
-                        details: langs.in_the_menu,
-                        username: account.name,
-                    })
-                    info.style.display = "none";
-                    playBtn.style.display = "";
-                    info.innerHTML = `Verificando archivos...`;
-                    footermodaliniciarversion.style.display = "";
-                    textInfo.innerHTML = "Selecciona la versión que quieres abrir";
-                    new logger("Launcher", "#3e8ed0");
-                    console.log("🔧 Minecraft cerrado");
-                    document.getElementById("carga-de-versiones").style.display = "none";
-
-                    progressBar1.style.display = "none";
-
-
-                    //convertir todos los strings a null
-                    version = null;
-                    versionType = null;
-                    versionData = null;
-                    version_real = null;
-                    assets = null;
-                    type = null;
-                    isForgeCheckBox = false;
-                    isFabricCheckBox = false;
-                    isQuiltCheckBox = false;
-                    document.getElementById("radioVanilla").removeAttribute("checked");
-                    document.getElementById("radioForge").removeAttribute("checked");
-                    document.getElementById("radioFabric").removeAttribute("checked");
-                    document.getElementById("radioQuilt").removeAttribute("checked");
-
-
-
-                    ipcRenderer.send("delete-and-new-status-discord");
-                });
-
-                launch.on("error", (err) => {
-                    consoleOutput_ += `[ERROR] ${JSON.stringify(err, null, 2)}\n`;
-
-                    progressBar1.style.display = "none";
-                    info.style.display = "none";
-                    playBtn.style.display = "";
-
-                    return Toast.fire({
-                        title: "Error",
-                        text: "Error al iniciar Minecraft. Error desconocido. Vuelve a iniciar Minecraft. [ERROR: 7] \nError: " +
-                            err.error,
-                        icon: "error",
-                        button: "Aceptar",
-                    });
-                });
-
-                let seMostroExtrayendo_core = false;
-                let seMostroInstalando_core = false;
-
-                launch_core.on("extract", (extract) => {
-                    consoleOutput_ += `[EXTRACT] ${extract}\n`;
-                    if (seMostroExtrayendo_core) { } else {
-                        logTextArea1.innerHTML = `${langs.extracting_loader}.`;
-                        seMostroExtrayendo_core = true;
-                    }
-                });
-
-                launch_core.on("debug", (e) => {
-                    consoleOutput_ += `[MC] ${JSON.stringify(e, null, 2)}\n`;
-                    if (e.includes("Failed to start due to TypeError")) {
-                        Toast.fire({
-                            icon: "error",
-                            title: "Error al iniciar Minecraft",
-                        });
-                        progressBar1.style.display = "none";
-                        progressBar1.max = 100;
-                        progressBar1.value = 0;
-                        playBtn.style.display = "";
-                        info.style.display = "none";
-                        crasheo = true;
-                    }
-
-                    if (e.includes("Downloaded and extracted natives")) {
-                        progressBar1.style.display = "";
-                        progressBar1.max = 100;
-                        progressBar1.value = 0;
-
-                        info.innerHTML = langs.downloading_files;
-                    }
-
-                    if (e.includes("Attempting to download Minecraft version jar")) {
-                        info.innerHTML = langs.downloading_version;
-                    }
-
-                    if (e.includes("Attempting to download assets")) {
-                        info.innerHTML = langs.downloading_assets
-                    }
-
-                    if (e.includes("Downloaded Minecraft version jar")) {
-                        info.innerHTML = langs.downloading_libraries;
-                    }
-
-                    if (e.includes("Downloaded and extracted natives")) {
-                        info.innerHTML = langs.downloading_natives;
-                    }
-
-                    if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                    if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                    if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                    if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                    if (e.includes("Forge patcher exited with code 1")) {
-                        ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                        progressBar1.style.display = "none";
-                        info.style.display = "none";
-                        playBtn.style.display = "";
-                    }
-
-                    if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                    if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-                    
-                });
-                launch_core.on("data", async (e) => {
-                    new logger("Minecraft", "#36b030");
-                    consoleOutput_ += `[MC] ${e}\n`;
-                    if (launcherSettings.launcher.close === "close-launcher")
-                        ipcRenderer.send("main-window-hide");
-                    progressBar1.style.display = "none";
-
-                    if (e.includes("Launching with arguments"))
-                        info.innerHTML = `${langs.starting_minecraft}...`;;
-
-                    if (iniciando == false) {
-
-                        iniciando = true;
-
-                        /* editar archivo servers.dat */
-                        let serversDat = `${dataDirectory}/.battly/servers.dat`;
-
-                        if (fs.existsSync(serversDat)) {
-                            try {
-                                const serversDatFile = fs.readFileSync(serversDat);
-                                const serversDatData = await NBT.read(serversDatFile);
-                                
-
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-
-                                    // Verificar si la IP ya existe en el archivo servers.dat
-                                    const ipExists = serversDatData.data.servers.some(server => server.ip === newServer.ip);
-
-                                    if (!ipExists) {
-                                        serversArray.push(newServer);
-                                    }
-                                }
-
-                                
-
-                                // Añadir los nuevos servidores al array existente en serversDatData.data.servers
-                                serversDatData.data.servers = serversArray.concat(serversDatData.data.servers);
-                                const editedServersDat = await NBT.write(serversDatData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al procesar el archivo NBT:", error);
-                            }
-                        } else {
-                            try {
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-                                    serversArray.push(newServer);
-                                }
-
-                                
-
-                                // Crear un nuevo archivo servers.dat con los servidores nuevos
-                                const newData = { servers: serversArray };
-                                const editedServersDat = await NBT.write(newData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al crear el nuevo archivo NBT:", error);
-                            }
-                        }
-
-
-                        //añadir 
-
-                        let versiones = this.Versions;
-
-                        const skinsJarPath = `${dataDirectory}/.battly/mods/skins.jar`;
-                        const skinsForgeJarPath = `${dataDirectory}/.battly/mods/skins-forge.jar`;
-                        const skinsForgeNewJarPath = `${dataDirectory}/.battly/mods/skins-forge-new.jar`;
-
-                        let rutaPrincipalSkinsJar = `${dataDirectory}/.battly/battly/mods-internos/skins.jar`;
-                        let rutaPrincipalSkinsForgeJar = `${dataDirectory}/.battly/battly/mods-internos/skins-forge.jar`;
-                        let rutaPrincipalSkinsForgeNewJar = `${dataDirectory}/.battly/battly/mods-internos/skins-forge-new.jar`;
-
-                        let rutaModMultijugadorForge = `${dataDirectory}/.battly/battly/mods-internos/multijugador-forge.jar`;
-                        let rutaModMultijugadorFabric = `${dataDirectory}/.battly/battly/mods-internos/multijugador-fabric.jar`;
-
-                        let rutaModMultijugadorForgeDeMods = `${dataDirectory}/.battly/mods/multijugador-forge.jar`;
-                        let rutaModMultijugadorFabricDeMods = `${dataDirectory}/.battly/mods/multijugador-fabric.jar`;
-
-                        if (fs.existsSync(rutaModMultijugadorFabricDeMods)) {
-                            fs.unlinkSync(rutaModMultijugadorFabricDeMods);
-                        }
-
-                        if (fs.existsSync(rutaModMultijugadorForgeDeMods)) {
-                            fs.unlinkSync(rutaModMultijugadorForgeDeMods);
-                        }
-
-                        fs.unlinkSync(skinsForgeJarPath);
-                        fs.unlinkSync(skinsForgeNewJarPath);
-
-                        const selectedVersion = version;
-                        
-
-                        let selectedVersionWithoutHyphen;
-
-                        if (selectedVersion.includes("-")) {
-                            selectedVersionWithoutHyphen = selectedVersion.replace(/-[^.]+/, "");
-                        }
-
-                        const versionInfo = versiones.versions.find(
-                            (v) => v.id === selectedVersionWithoutHyphen
-                        );
-
-                        
-
-                        if (versionInfo) {
-                            function formatVersionNumber(version) {
-                                const parsedVersion = parseFloat(version);
-                                if (!isNaN(parsedVersion)) {
-                                    const formattedVersion = parsedVersion.toString();
-                                    return formattedVersion;
-                                }
-                                return version; // Si no se puede analizar como número, devuelve la versión original
-                            }
-
-                            // Ejemplo de uso:
-                            const versionNumber = formatVersionNumber(versionInfo.version);
-
-                            let versionesCompatiblesConForgeNormal = [
-                                "1.16.5",
-                                "1.16.4",
-                                "1.16.3",
-                                "1.16.2",
-                                "1.16.1",
-                                "1.16",
-                                "1.15.2",
-                                "1.15.1",
-                                "1.15",
-                                "1.14.4",
-                                "1.14.3",
-                                "1.14.2",
-                                "1.14.1",
-                                "1.14",
-                                "1.13.2",
-                                "1.13.1",
-                                "1.13",
-                                "1.12.2",
-                                "1.12.1",
-                                "1.12",
-                                "1.11.2",
-                                "1.11.1",
-                                "1.11",
-                                "1.10.2",
-                                "1.10.1",
-                                "1.10",
-                                "1.9.4",
-                                "1.9.3",
-                                "1.9.2",
-                                "1.9.1",
-                                "1.9",
-                                "1.8.9",
-                                "1.8.8",
-                                "1.8.7",
-                                "1.8.6",
-                                "1.8.5",
-                                "1.8.4",
-                                "1.8.3",
-                                "1.8.2",
-                                "1.8.1",
-                                "1.8",
-                            ];
-
-                            
-
-                            const excludedVersions = [
-                                1.16, 1.15, 1.14, 1.13, 1.12, 1.11, 1.1, 1.9, 1.8, 1.7, 1.6,
-                                1.5, 1.4, 1.3,
-                            ];
-                            const includedVersionsForgeNew = [1.17, 1.18, 1.19, 1.2, 1.21];
-                            const versionesConMultijugadorDesactivado = ["1.16.4", "1.16.5"];
-
-                            
-
-                            if (
-                                versionesConMultijugadorDesactivado.includes(version) &&
-                                versionType === "forge"
-                            ) {
-                                fs.copyFileSync(
-                                    rutaModMultijugadorForge,
-                                    `${dataDirectory}/.battly/mods/multijugador-forge.jar`
-                                );
-                            } else if (
-                                versionesConMultijugadorDesactivado.includes(version) &&
-                                versionType === "fabric"
-                            ) {
-                                fs.copyFileSync(
-                                    rutaModMultijugadorFabric,
-                                    `${dataDirectory}/.battly/mods/multijugador-fabric.jar`
-                                );
-                            }
-
-                            if (
-                                includedVersionsForgeNew.includes(parseFloat(version_real)) &&
-                                !excludedVersions.includes(parseFloat(version_real)) &&
-                                versionType == "forge"
-                            ) {
-                                
-
-                                fs.copyFileSync(
-                                    rutaPrincipalSkinsForgeNewJar,
-                                    skinsForgeNewJarPath
-                                );
-
-                                // Eliminar skins.jar y skins-forge.jar
-                                if (fs.existsSync(skinsJarPath)) {
-                                    fs.unlinkSync(skinsJarPath);
-                                }
-                                if (fs.existsSync(skinsForgeJarPath)) {
-                                    fs.unlinkSync(skinsForgeJarPath);
-                                }
-                            } else if (
-                                versionesCompatiblesConForgeNormal.includes(version_real) &&
-                                versionType == "forge"
-                            ) {
-                                
-
-                                fs.copyFileSync(rutaPrincipalSkinsForgeJar, skinsForgeJarPath);
-
-                                // Eliminar skins.jar y skins-forge-new.jar
-                                if (fs.existsSync(skinsJarPath)) {
-                                    fs.unlinkSync(skinsJarPath);
-                                }
-                                if (fs.existsSync(skinsForgeNewJarPath)) {
-                                    fs.unlinkSync(skinsForgeNewJarPath);
-                                }
-                            } else if (versionType == "fabric" || versionType == "quilt") {
-                                
-
-                                fs.copyFileSync(rutaPrincipalSkinsJar, skinsJarPath);
-                                // Eliminar skins-forge.jar y skins-forge-new.jar
-                                if (fs.existsSync(skinsForgeJarPath)) {
-                                    fs.unlinkSync(skinsForgeJarPath);
-                                }
-                                if (fs.existsSync(skinsForgeNewJarPath)) {
-                                    fs.unlinkSync(skinsForgeNewJarPath);
-                                }
-                            }
-                        }
-
-                        let archivoConfigSkins = `${dataDirectory}/.battly/CustomSkinLoader/CustomSkinLoader.json`;
-                        let data = {
-                            version: "14.15",
-                            buildNumber: 8,
-                            loadlist: [{
-                                name: "BattlyAPI",
-                                type: "Legacy",
-                                checkPNG: false,
-                                skin: "http://api.battlylauncher.com/api/skin/{USERNAME}.png",
-                                model: "auto",
-                                cape: "http://api.battlylauncher.com/api/capa/{USERNAME}.png",
-                            },
-                            {
-                                name: "Mojang",
-                                type: "MojangAPI",
-                                apiRoot: "https://api.mojang.com/",
-                                sessionRoot: "https://sessionserver.mojang.com/",
-                            },
-                            {
-                                name: "OptiFine",
-                                type: "Legacy",
-                                checkPNG: false,
-                                model: "auto",
-                                cape: "https://optifine.net/capes/{USERNAME}.png",
-                            },
-                            {
-                                name: "LabyMod",
-                                type: "Legacy",
-                                checkPNG: false,
-                                model: "auto",
-                                cape: "https://dl.labymod.net/capes/{STANDARD_UUID}",
-                            },
-                            ],
-                            enableDynamicSkull: true,
-                            enableTransparentSkin: true,
-                            forceIgnoreHttpsCertificate: true,
-                            forceLoadAllTextures: true,
-                            enableCape: true,
-                            threadPoolSize: 8,
-                            enableLogStdOut: false,
-                            cacheExpiry: 30,
-                            forceUpdateSkull: true,
-                            enableLocalProfileCache: false,
-                            enableCacheAutoClean: true,
-                            forceDisableCache: true,
-                        };
-
-                        if (fs.existsSync(path.join(archivoConfigSkins))) {
-                            fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                        } else {
-                            fs.mkdirSync(
-                                `${dataDirectory}/${process.platform == "darwin"
-                                    ? this.config.dataDirectory
-                                    : `.${this.config.dataDirectory}`
-                                }/CustomSkinLoader`
-                            );
-                            fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                        }
-                    }
-
-                    if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                    if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                    if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                    if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                    if (e.includes("Forge patcher exited with code 1")) {
-                        ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                        progressBar1.style.display = "none";
-                        info.style.display = "none";
-                        playBtn.style.display = "";
-                    }
-
-                    if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                    if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (
-                        e.includes(`Setting user: ${account.name}`) ||
-                        e.includes("Launching wrapped minecraft")
-                    ) {
-                        if (inicio == false) {
-                            let typeOfVersion;
-                            if (version_real.endsWith("-forge")) {
-                                typeOfVersion = "Forge";
-                            } else if (version_real.endsWith("-fabric")) {
-                                typeOfVersion = "Fabric";
-                            } else if (version_real.endsWith("-quilt")) {
-                                typeOfVersion = "Quilt";
-                            } else {
-                                typeOfVersion = "";
-                            }
-
-                            if (version_real.includes("OptiFine")) {
-                                let version_optifine = version_real.substring(0, 6);
-                                version_optifine = version_optifine.replace("-", "");
-
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} OptiFine ${version_optifine}`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} OptiFine ${version_optifine}`);
-                            } else if (version_real.includes("LabyMod")) {
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} LabyMod`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} LabyMod`);
-                            } else if (version_real.includes("cmpack")) {
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} CMPack`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} CMPack`);
-                            } else {
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} ${version_real
-                                        .replace("-forge", "")
-                                        .replace("-fabric", "")
-                                        .replace("-quilt", "")} ${typeOfVersion}`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} ${version_real
-                                    .replace("-forge", "")
-                                    .replace("-fabric", "")
-                                    .replace("-quilt", "")} ${typeOfVersion}`);
-                            }
-
-                            modalDiv1.classList.remove("is-active");
-                            inicio = true;
-                            info.innerHTML = `${langs.minecraft_started_correctly}.`;
-                            logTextArea1.innerHTML = ``;
-                            textInfo.innerHTML = `Selecciona la versión que quieres abrir`;
-                            ipcRenderer.send("new-notification", {
-                                title: langs.minecraft_started_correctly,
-                                body: langs.minecraft_started_correctly_body,
-                            });
-
-                            ipcRenderer.send("main-window-progress-reset");
-                        }
-                    }
-
-                    if (e.includes("Connecting to")) {
-                        let msj = e.split("Connecting to ")[1].split("...")[0];
-                        info.innerHTML = `Conectando a ${msj}`;
-                    }
-                });
-
-                launch_core.on("progress", (progress, size) => {
-                    consoleOutput_ += `[DESCARGANDO] ${progress} / ${size}\n`;
-                    if (seMostroInstalando_core) { } else {
-                        seMostroInstalando_core = true;
-                    }
-                    let progreso = ((progress / size) * 100).toFixed(0);
-                    //si el progreso es más de 100, ponerlo a 100
-                    if (progreso > 100) {
-                        progreso = 100;
-                    }
-                    progressBar1.style.display = "block";
-                    info.innerHTML = `Descargando... ${progreso}%`;
-                    ipcRenderer.send("main-window-progress", {
-                        progress,
-                        size
-                    });
-                    progressBar1.value = progress;
-                    progressBar1.max = size;
-                });
-                launch_core.on("check", (progress, size) => {
-                    consoleOutput_ += `[INSTALANDO MC] ${progress} / ${size}\n`;
-                    let seMostroInstalando = false;
-                    if (seMostroInstalando) { } else {
-                        logTextArea1.innerHTML = `${langs.extracting_loader}.`;
-                        seMostroInstalando = true;
-                    }
-                    progressBar1.style.display = "";
-                    let size_actual = 100;
-                    let progress_actual = ((progress / size) * 100).toFixed(0);
-                    ipcRenderer.send("main-window-progress", {
-                        progress_actual,
-                        size_actual,
-                    });
-                    info.innerHTML = `Extrayendo ModPack... ${progress_actual}%`;
-                    progressBar1.value = progress;
-                    progressBar1.max = size;
-                });
-
-                launch_core.on("estimated", (time) => {
-                    ipcRenderer.send("main-window-progress-reset");
-                    /*
-                                  let hours = Math.floor(time / 3600);
-                                  let minutes = Math.floor((time - hours * 3600) / 60);
-                                  let seconds = Math.floor(time - hours * 3600 - minutes * 60);
-                                  console.log(`${hours}h ${minutes}m ${seconds}s`);*/
-                });
-
-                launch_core.on("speed", (speed) => {
-                    /*
-                                                  let velocidad = speed / 1067008;
-                      
-                                                  if (velocidad > 0) {
-                                                      clearTimeout(timeoutId); // cancela el mensaje de alerta si la velocidad no es cero
-                                                  } else {
-                                                      timeoutId = setTimeout(() => {
-                                                          progressBar1.style.display = "none"
-                                                          progressBar1.max = 100;
-                                                          progressBar1.value = 0;
-                                                          playBtn.style.display = ""
-                                                          info.style.display = "none"
-                                                          clearTimeout(timeoutId);
-                                                          const swal  = require('sweetalert');
-                                                          crasheo = true;
-                      
-                                                          Toast.fire({
-                                                              title: "Error",
-                                                              text: "Error al descargar esta versión. Reinicia el launcher o inténtalo de nuevo más tarde. [ERROR: 2]",
-                                                              icon: "error",
-                                                              button: "Aceptar",
-                                                          }).then((value) => {
-                                                              if(value) {
-                                                                  ipcRenderer.send('restartLauncher')
-                                                              }
-                                                          });
-                                                          
-                                                      }, 10000);
-                                                  }*/
-                });
-
-                let seMostroInstalando = false;
-                launch_core.on("patch", (patch) => {
-                    consoleOutput_ += `[INSTALANDO LOADER] ${patch}\n`;
-                    if (seMostroInstalando) { } else {
-                        logTextArea1.innerHTML = `${langs.extracting_loader}.`;
-                        seMostroInstalando = true;
-                    }
-                });
-
-                launch_core.on("data", async (e) => {
-                    new logger("Minecraft", "#36b030");
-                    consoleOutput_ += `[MC] ${e}\n`;
-                    if (launcherSettings.launcher.close === "close-launcher")
-                        ipcRenderer.send("main-window-hide");
-                    progressBar1.style.display = "none";
-
-                    if (e.includes("Launching with arguments"))
-                        info.innerHTML = `${langs.starting_minecraft}...`;;
-
-                    if (iniciando == false) {
-                        
-                        iniciando = true;
-
-                        let serversDat = `${dataDirectory}/.battly/servers.dat`;
-
-                        if (fs.existsSync(serversDat)) {
-                            try {
-                                const serversDatFile = fs.readFileSync(serversDat);
-                                const serversDatData = await NBT.read(serversDatFile);
-                                
-
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-
-                                    // Verificar si la IP ya existe en el archivo servers.dat
-                                    const ipExists = serversDatData.data.servers.some(server => server.ip === newServer.ip);
-
-                                    if (!ipExists) {
-                                        serversArray.push(newServer);
-                                    }
-                                }
-
-                                
-
-                                // Añadir los nuevos servidores al array existente en serversDatData.data.servers
-                                serversDatData.data.servers = serversArray.concat(serversDatData.data.servers);
-                                const editedServersDat = await NBT.write(serversDatData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al procesar el archivo NBT:", error);
-                            }
-                        } else {
-                            try {
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-                                    serversArray.push(newServer);
-                                }
-
-                                
-
-                                // Crear un nuevo archivo servers.dat con los servidores nuevos
-                                const newData = { servers: serversArray };
-                                const editedServersDat = await NBT.write(newData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al crear el nuevo archivo NBT:", error);
-                            }
-                        }
-
-                        let versiones = this.Versions;
-
-                        const skinsJarPath = `${dataDirectory}/.battly/mods/skins.jar`;
-                        const skinsForgeJarPath = `${dataDirectory}/.battly/mods/skins-forge.jar`;
-                        const skinsForgeNewJarPath = `${dataDirectory}/.battly/mods/skins-forge-new.jar`;
-
-                        let rutaPrincipalSkinsJar = `${dataDirectory}/.battly/battly/mods-internos/skins.jar`;
-                        let rutaPrincipalSkinsForgeJar = `${dataDirectory}/.battly/battly/mods-internos/skins-forge.jar`;
-                        let rutaPrincipalSkinsForgeNewJar = `${dataDirectory}/.battly/battly/mods-internos/skins-forge-new.jar`;
-
-                        let rutaModMultijugadorForge = `${dataDirectory}/.battly/battly/mods-internos/multijugador-forge.jar`;
-                        let rutaModMultijugadorFabric = `${dataDirectory}/.battly/battly/mods-internos/multijugador-fabric.jar`;
-
-                        let rutaModMultijugadorForgeDeMods = `${dataDirectory}/.battly/mods/multijugador-forge.jar`;
-                        let rutaModMultijugadorFabricDeMods = `${dataDirectory}/.battly/mods/multijugador-fabric.jar`;
-
-                        if (fs.existsSync(rutaModMultijugadorFabricDeMods)) {
-                            fs.unlinkSync(rutaModMultijugadorFabricDeMods);
-                        }
-
-                        if (fs.existsSync(rutaModMultijugadorForgeDeMods)) {
-                            fs.unlinkSync(rutaModMultijugadorForgeDeMods);
-                        }
-
-                        fs.unlinkSync(skinsJarPath);
-                        fs.unlinkSync(skinsForgeJarPath);
-                        fs.unlinkSync(skinsForgeNewJarPath);
-
-                        const selectedVersion = version;
-
-                        let selectedVersionWithoutHyphen;
-                        if (selectedVersion.includes("-")) {
-                            selectedVersionWithoutHyphen = selectedVersion.replace(/-[^.]+/, "");
-                        }
-
-                        const versionInfo = versiones.versions.find(
-                            (v) => v.id === selectedVersionWithoutHyphen
-                        );
-
-                        if (versionInfo) {
-                            function formatVersionNumber(version) {
-                                const parsedVersion = parseFloat(version);
-                                if (!isNaN(parsedVersion)) {
-                                    const formattedVersion = parsedVersion.toString();
-                                    return formattedVersion;
-                                }
-                                return version; // Si no se puede analizar como número, devuelve la versión original
-                            }
-
-                            // Ejemplo de uso:
-                            const versionNumber = formatVersionNumber(versionInfo.version);
-
-                            let versionesCompatiblesConForgeNormal = [
-                                "1.16.5",
-                                "1.16.4",
-                                "1.16.3",
-                                "1.16.2",
-                                "1.16.1",
-                                "1.16",
-                                "1.15.2",
-                                "1.15.1",
-                                "1.15",
-                                "1.14.4",
-                                "1.14.3",
-                                "1.14.2",
-                                "1.14.1",
-                                "1.14",
-                                "1.13.2",
-                                "1.13.1",
-                                "1.13",
-                                "1.12.2",
-                                "1.12.1",
-                                "1.12",
-                                "1.11.2",
-                                "1.11.1",
-                                "1.11",
-                                "1.10.2",
-                                "1.10.1",
-                                "1.10",
-                                "1.9.4",
-                                "1.9.3",
-                                "1.9.2",
-                                "1.9.1",
-                                "1.9",
-                                "1.8.9",
-                                "1.8.8",
-                                "1.8.7",
-                                "1.8.6",
-                                "1.8.5",
-                                "1.8.4",
-                                "1.8.3",
-                                "1.8.2",
-                                "1.8.1",
-                                "1.8",
-                            ];
-
-                            
-
-                            const excludedVersions = [
-                                1.16, 1.15, 1.14, 1.13, 1.12, 1.11, 1.1, 1.9, 1.8, 1.7, 1.6,
-                                1.5, 1.4, 1.3,
-                            ];
-                            const includedVersionsForgeNew = [1.17, 1.18, 1.19, 1.2, 1.21];
-
-                            const versionesConMultijugadorDesactivado = ["1.16.4", "1.16.5"];
-
-                            
-
-                            if (
-                                versionesConMultijugadorDesactivado.includes(version) &&
-                                versionType === "forge"
-                            ) {
-                                fs.copyFileSync(
-                                    rutaModMultijugadorForge,
-                                    `${dataDirectory}/.battly/mods/multijugador-forge.jar`
-                                );
-                            } else if (
-                                versionesConMultijugadorDesactivado.includes(version) &&
-                                versionType === "fabric"
-                            ) {
-                                fs.copyFileSync(
-                                    rutaModMultijugadorFabric,
-                                    `${dataDirectory}/.battly/mods/multijugador-fabric.jar`
-                                );
-                            }
-
-                            if (
-                                includedVersionsForgeNew.includes(parseFloat(version_real)) &&
-                                !excludedVersions.includes(parseFloat(version_real)) &&
-                                versionType == "forge"
-                            ) {
-                                
-
-                                fs.copyFileSync(
-                                    rutaPrincipalSkinsForgeNewJar,
-                                    skinsForgeNewJarPath
-                                );
-
-                                // Eliminar skins.jar y skins-forge.jar
-                                if (fs.existsSync(skinsJarPath)) {
-                                    fs.unlinkSync(skinsJarPath);
-                                }
-                                if (fs.existsSync(skinsForgeJarPath)) {
-                                    fs.unlinkSync(skinsForgeJarPath);
-                                }
-                            } else if (
-                                versionesCompatiblesConForgeNormal.includes(version_real) &&
-                                versionType == "forge"
-                            ) {
-                                
-
-                                fs.copyFileSync(rutaPrincipalSkinsForgeJar, skinsForgeJarPath);
-
-                                // Eliminar skins.jar y skins-forge-new.jar
-                                if (fs.existsSync(skinsJarPath)) {
-                                    fs.unlinkSync(skinsJarPath);
-                                }
-                                if (fs.existsSync(skinsForgeNewJarPath)) {
-                                    fs.unlinkSync(skinsForgeNewJarPath);
-                                }
-                            } else if (versionType == "fabric" || versionType == "quilt") {
-                                
-
-                                fs.copyFileSync(rutaPrincipalSkinsJar, skinsJarPath);
-                                // Eliminar skins-forge.jar y skins-forge-new.jar
-                                if (fs.existsSync(skinsForgeJarPath)) {
-                                    fs.unlinkSync(skinsForgeJarPath);
-                                }
-                                if (fs.existsSync(skinsForgeNewJarPath)) {
-                                    fs.unlinkSync(skinsForgeNewJarPath);
-                                }
-                            }
-                        }
-
-                        let archivoConfigSkins = `${dataDirectory}/.battly/CustomSkinLoader/CustomSkinLoader.json`;
-                        let data = {
-                            version: "14.15",
-                            buildNumber: 8,
-                            loadlist: [{
-                                name: "BattlyAPI",
-                                type: "Legacy",
-                                checkPNG: false,
-                                skin: "http://api.battlylauncher.com/api/skin/{USERNAME}.png",
-                                model: "auto",
-                                cape: "http://api.battlylauncher.com/api/capa/{USERNAME}.png",
-                            },
-                            {
-                                name: "Mojang",
-                                type: "MojangAPI",
-                                apiRoot: "https://api.mojang.com/",
-                                sessionRoot: "https://sessionserver.mojang.com/",
-                            },
-                            {
-                                name: "OptiFine",
-                                type: "Legacy",
-                                checkPNG: false,
-                                model: "auto",
-                                cape: "https://optifine.net/capes/{USERNAME}.png",
-                            },
-                            {
-                                name: "LabyMod",
-                                type: "Legacy",
-                                checkPNG: false,
-                                model: "auto",
-                                cape: "https://dl.labymod.net/capes/{STANDARD_UUID}",
-                            },
-                            ],
-                            enableDynamicSkull: true,
-                            enableTransparentSkin: true,
-                            forceIgnoreHttpsCertificate: true,
-                            forceLoadAllTextures: true,
-                            enableCape: true,
-                            threadPoolSize: 8,
-                            enableLogStdOut: false,
-                            cacheExpiry: 30,
-                            forceUpdateSkull: true,
-                            enableLocalProfileCache: false,
-                            enableCacheAutoClean: true,
-                            forceDisableCache: true,
-                        };
-
-                        if (fs.existsSync(path.join(archivoConfigSkins))) {
-                            fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                        } else {
-                            fs.mkdirSync(
-                                `${dataDirectory}/${process.platform == "darwin"
-                                    ? this.config.dataDirectory
-                                    : `.${this.config.dataDirectory}`
-                                }/CustomSkinLoader`
-                            );
-                            fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                        }
-                    }
-
-                    if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                    if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                    if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                    if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                    if (e.includes("Forge patcher exited with code 1")) {
-                        ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                        progressBar1.style.display = "none";
-                        info.style.display = "none";
-                        playBtn.style.display = "";
-                    }
-
-                    if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                    if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                    if (
-                        e.includes(`Setting user: ${account.name}`) ||
-                        e.includes("Launching wrapped minecraft")
-                    ) {
-                        if (inicio == false) {
-                            let typeOfVersion;
-                            if (version_real.endsWith("-forge")) {
-                                typeOfVersion = "Forge";
-                            } else if (version_real.endsWith("-fabric")) {
-                                typeOfVersion = "Fabric";
-                            } else if (version_real.endsWith("-quilt")) {
-                                typeOfVersion = "Quilt";
-                            } else {
-                                typeOfVersion = "";
-                            }
-                            ipcRenderer.send(
-                                "new-status-discord-jugando",
-                                `${langs.playing_in} ${version_real
-                                    .replace("-forge", "")
-                                    .replace("-fabric", "")
-                                    .replace("-quilt", "")} ${typeOfVersion}`
-                            );
-
-                            this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} ${version_real.replace("-forge", "").replace("-fabric", "").replace("-quilt", "")} ${typeOfVersion}`);
-                            modalDiv1.classList.remove("is-active");
-                            inicio = true;
-                            info.innerHTML = `${langs.minecraft_started_correctly}.`;
-                            logTextArea1.innerHTML = ``;
-                            textInfo.innerHTML = `Selecciona la versión que quieres abrir`;
-                            ipcRenderer.send("new-notification", {
-                                title: langs.minecraft_started_correctly,
-                                body: langs.minecraft_started_correctly_body,
-                            });
-
-                            ipcRenderer.send("main-window-progress-reset");
-                        }
-                    }
-                });
-
-                launch_core.on("close", (code) => {
-                    consoleOutput_ += `---------- [MC] Código de salida: ${code}\n ----------`;
-                    modalDiv1.classList.remove("is-active");
-                    if (launcherSettings.launcher.close === "close-launcher")
-                        ipcRenderer.send("main-window-show");
-
-                    ipcRenderer.send('updateStatus', {
-                        status: 'online',
-                        details: langs.in_the_menu,
-                        username: account.name,
-                    })
-                    progressBar1.style.display = "none";
-                    info.style.display = "none";
-                    playBtn.style.display = "";
-                    info.innerHTML = `Verificando archivos...`;
-                    footermodaliniciarversion.style.display = "";
-                    textInfo.innerHTML = "Selecciona la versión que quieres abrir";
-                    new logger("Launcher", "#3e8ed0");
-                    console.log("🔧 Minecraft cerrado");
-
-                    progressBar1.style.display = "none";
-
-                    version = null;
-                    versionType = null;
-                    versionData = null;
-                    version_real = null;
-                    assets = null;
-                    type = null;
-                    isForgeCheckBox = false;
-                    isFabricCheckBox = false;
-                    isQuiltCheckBox = false;
-                    document.getElementById("radioVanilla").removeAttribute("checked");
-                    document.getElementById("radioForge").removeAttribute("checked");
-                    document.getElementById("radioFabric").removeAttribute("checked");
-                    document.getElementById("radioQuilt").removeAttribute("checked");
-
-
-
-
-                    ipcRenderer.send("delete-and-new-status-discord");
-                });
-
-                launch_core.on("error", (err) => {
-                    consoleOutput_ += `[ERROR] ${JSON.stringify(err, null, 2)}\n`;
-                });
-            });
-
-        document
-            .getElementById("download-btn")
-            .addEventListener("click", async () => {
-                let versionMojangData = this.VersionsMojang;
-                versionMojangData = versionMojangData.versions;
-
-                let snapshots = [];
-                let releases = [];
-                let betas = [];
-                let alphas = [];
-
-                for (let i = 0; i < versionMojangData.length; i++) {
-                    if (versionMojangData[i].type == "release") {
-                        releases.push(versionMojangData[i]);
-                    } else if (versionMojangData[i].type == "snapshot") {
-                        snapshots.push(versionMojangData[i]);
-                    }
-                }
-
-                let versionBattlyData = this.Versions;
-                versionBattlyData = versionBattlyData.versions;
-
-                let forgeVersions = [];
-                let fabricVersions = [];
-                let quiltVersions = [];
-                let optifineVersions = [];
-
-                for (let i = 0; i < versionBattlyData.length; i++) {
-                    if (versionBattlyData[i].version.endsWith("-forge")) {
-                        forgeVersions.push(versionBattlyData[i]);
-                    } else if (versionBattlyData[i].version.endsWith("-fabric")) {
-                        fabricVersions.push(versionBattlyData[i]);
-                    } else if (versionBattlyData[i].version.endsWith("-quilt")) {
-                        quiltVersions.push(versionBattlyData[i]);
-                    } else if (versionBattlyData[i].version.endsWith("-optifine")) {
-                        optifineVersions.push(versionBattlyData[i]);
-                    }
-                }
-
-                //betas
-                for (let i = 0; i < versionMojangData.length; i++) {
-                    if (versionMojangData[i].type == "old_beta") {
-                        betas.push(versionMojangData[i]);
-                    }
-                }
-
-                //alphas
-                for (let i = 0; i < versionMojangData.length; i++) {
-                    if (versionMojangData[i].type == "old_alpha") {
-                        alphas.push(versionMojangData[i]);
-                    }
-                }
-
-                // Crear el div modal principal
-                let modalDiv = document.createElement("div");
-                modalDiv.classList.add("modal");
-                modalDiv.classList.add("is-active");
-
-                // Crear el fondo del modal
-                let modalBackground = document.createElement("div");
-                modalBackground.classList.add("modal-background");
-
-                // Crear el div del contenido del modal
-                let modalCard = document.createElement("div");
-                modalCard.classList.add("modal-card");
-
-                // Crear el encabezado del modal
-                let modalHeader = document.createElement("header");
-                modalHeader.classList.add("modal-card-head");
-
-                let modalTitle = document.createElement("p");
-                modalTitle.classList.add("modal-card-title");
-                modalTitle.innerText = langs.download_version;
-
-                let modalCloseButton = document.createElement("button");
-                modalCloseButton.classList.add("delete");
-                modalCloseButton.setAttribute("aria-label", "close");
-
-                modalHeader.appendChild(modalTitle);
-                modalHeader.appendChild(modalCloseButton);
-
-                // Crear la sección del cuerpo del modal
-                let modalSection = document.createElement("section");
-                modalSection.classList.add("modal-card-body");
-
-                let cardDiv = document.createElement("div");
-                cardDiv.classList.add("card");
-                let cardContentDiv = document.createElement("div");
-                cardContentDiv.classList.add("card-content");
-
-                let mediaDiv = document.createElement("div");
-                mediaDiv.classList.add("media");
-
-                let mediaLeftDiv = document.createElement("div");
-                mediaLeftDiv.classList.add("media-left");
-
-                let imageFigure = document.createElement("figure");
-                imageFigure.classList.add("image");
-                imageFigure.classList.add("is-48x48");
-
-                let image = document.createElement("img");
-                image.src =
-                    "./assets/images/icons/minecraft.png";
-                image.alt = "Placeholder image";
-                image.id = "versionImg";
-
-                imageFigure.appendChild(image);
-                mediaLeftDiv.appendChild(imageFigure);
-                mediaDiv.appendChild(mediaLeftDiv);
-
-                let mediaContentDiv = document.createElement("div");
-                mediaContentDiv.classList.add("media-content");
-
-                let title = document.createElement("p");
-                title.classList.add("title");
-                title.classList.add("is-4");
-                title.id = "titleVersions";
-                title.innerText = "Java";
-
-                let subtitle = document.createElement("p");
-                subtitle.classList.add("subtitle");
-                subtitle.classList.add("is-6");
-                subtitle.id = "subtitleVersions";
-                subtitle.innerHTML = '<i class="fas fa-download"></i> 1.20.1';
-
-                mediaContentDiv.appendChild(title);
-                mediaContentDiv.appendChild(subtitle);
-                mediaDiv.appendChild(mediaContentDiv);
-
-                cardContentDiv.appendChild(mediaDiv);
-
-                let contentDiv = document.createElement("div");
-                contentDiv.classList.add("content");
-                const hr = document.createElement("hr");
-                const span = document.createElement("span");
-                span.style.fontSize = "20px";
-                span.innerText = langs.type_of_version;
-                contentDiv.appendChild(hr);
-                contentDiv.appendChild(span);
-                const br = document.createElement("br");
-                contentDiv.appendChild(br);
-                contentDiv.innerHTML += `
-<label class="radio">
-  <input type="radio" name="option" value="vanilla">
-  Vanilla
-</label>
-<label class="radio">
-  <input type="radio" name="option" value="fabric">
-  Fabric
-</label>
-<label class="radio">
-  <input type="radio" name="option" value="forge">
-  Forge
-</label>
-<label class="radio">
-  <input type="radio" name="option" value="quilt">
-  Quilt
-</label>
-<label class="radio">
-  <input type="radio" name="option" value="optifine">
-  OptiFine
-</label>
-
-<label class="radio">
-  <input type="radio" name="option" value="clientes">
-  Clients
-</label>
-<br>
-<br>
-<div id="tipoDeVersiones">
-<div id="divNormal">
-              <label class="radio" id="opcionNormal">
-                <input type="radio" name="opcion" value="normal">
-                Normal
-              </label>
-              <br>
-              <div class="select is-link" id="normal" style="width: auto;">
-                <select id="selectNormal">
-                </select>
-              </div>
-
-            </div>
-
-
-              <div id="divSnapshot">
-                <label class="radio" id="opcionSnapshot">
-                  <input type="radio" name="opcion" value="snapshot"> Snapshot
-                </label>
-                <br>
-                <div class="select is-link" id="snapshot" style="width: auto;">
-                  <select id="selectSnapshot">
-                  </select>
-                </div>
-              </div>
-
-              <div id="divBeta">
-                <label class="radio" id="opcionBeta">
-                    <input type="radio" name="opcion" value="beta"> Beta
-                </label>
-                <br>
-                <div class="select is-link" id="beta" style="width: auto;">
-                    <select id="selectBeta">
-                    </select>
-                    </div>
-                    </div>
-
-                <div id="divAlpha">
-                    <label class="radio" id="opcionAlpha">
-                        <input type="radio" name="opcion" value="alpha"> Alpha
-                    </label>
-                    <br>
-                    <div class="select is-link" id="alpha" style="width: auto;">
-                        <select id="selectAlpha">
-                        </select>
-                    </div>
-                </div>
-
-            </div>
-
-              <div id="versionesFabric">
-                <label>${langs.choose_fabric_version}
-                </label>
-                <br>
-                <div class="select is-link" id="fabric" style="width: auto;">
-                  <select id="selectFabric">
-                  </select>
-                </div>
-              </div>
-
-              <div id="versionesForge">
-                <label>${langs.choose_forge_version}
-                </label>
-                <br>
-                <div class="select is-link" id="forge" style="width: auto;">
-                  <select id="selectForge">
-                  </select>
-                </div>
-                <div class="select is-link" id="forgebuild" style="width: auto;">
-                  <select id="selectForgeBuild">
-                    <option value="recommended">${langs.recommended}</option>
-                    <option value="latest">${langs.latest}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div id="versionesQuilt">
-                <label>${langs.choose_quilt_version}
-                </label>
-                <br>
-                <div class="select is-link" id="quilt" style="width: auto;">
-                  <select id="selectQuilt">
-                  </select>
-                </div>
-              </div>
-
-              <div id="versionesOptiFine">
-                <label>${langs.choose_optifine_version}
-                </label>
-                <br>
-                <div class="select is-link" id="optifine" style="width: auto;">
-                  <select id="selectOptiFine">
-                  </select>
-                </div>
-              </div>
-              <div id="versionesClientes">
-                <label>${langs.choose_a_client}
-                </label>
-                <br>
-                <div class="select is-link" id="clientes" style="width: auto;">
-                  <select id="selectClientes">
-                  </select>
-                </div>
-              </div>
-</div>
-
-`;
-
-                cardContentDiv.appendChild(contentDiv);
-                cardDiv.appendChild(cardContentDiv);
-
-                let cardFooterDiv = document.createElement("div");
-                cardFooterDiv.classList.add("card-footer");
-
-                let cardFooterItemDiv = document.createElement("div");
-                cardFooterItemDiv.classList.add("card-footer-item");
-
-                let footerText = document.createElement("p");
-                footerText.style.fontSize = "10px";
-                footerText.innerHTML = langs.mojang_copyright;
-
-                cardFooterItemDiv.appendChild(footerText);
-                cardFooterDiv.appendChild(cardFooterItemDiv);
-                cardDiv.appendChild(cardFooterDiv);
-
-                modalSection.appendChild(cardDiv);
-
-                // Crear el pie del modal
-                let modalFooter = document.createElement("footer");
-                modalFooter.classList.add("modal-card-foot");
-
-                let downloadButton = document.createElement("button");
-                downloadButton.classList.add("button");
-                downloadButton.classList.add("is-info");
-                downloadButton.innerText = langs.download_version;
-
-                let deleteButton = document.createElement("button");
-                deleteButton.classList.add("button");
-                deleteButton.classList.add("is-danger");
-                deleteButton.innerText = langs.delete_version;
-
-                modalFooter.appendChild(downloadButton);
-                modalFooter.appendChild(deleteButton);
-
-                // Agregar elementos al modal
-                modalCard.appendChild(modalHeader);
-                modalCard.appendChild(modalSection);
-                modalCard.appendChild(modalFooter);
-
-                modalDiv.appendChild(modalBackground);
-                modalDiv.appendChild(modalCard);
-
-                document.body.appendChild(modalDiv);
-                // Agregar el modal al cuerpo del documento
-                modalCloseButton.addEventListener("click", function () {
-                    //eliminar el modal
-                    modalDiv.remove();
-                });
-
-                const normal = document.getElementById("normal");
-                const normalVersionType = document.getElementById("selectNormal");
-                const snapshot = document.getElementById("snapshot");
-                const beta = document.getElementById("beta");
-                const snapshotVersionType = document.getElementById("selectSnapshot");
-                const betaVersionType = document.getElementById("selectBeta");
-                const alpha = document.getElementById("alpha");
-                const alphaVersionType = document.getElementById("selectAlpha");
-                const selectAlpha = document.getElementById("selectAlpha");
-                const selectForgeBuild = document.getElementById("selectForgeBuild");
-
-                let radioNormal = document.getElementById("opcionNormal");
-                let radioSnapshot = document.getElementById("opcionSnapshot");
-
-                let tipoDeVersiones = document.getElementById("tipoDeVersiones");
-
-                normal.style.display = "none";
-                snapshot.style.display = "none";
-                beta.style.display = "none";
-                alpha.style.display = "none";
-
-                const radio = document.getElementsByName("opcion");
-
-                radio.forEach((element) => {
-                    element.addEventListener("click", () => {
-                        if (element.value == "normal") {
-                            normal.style.display = "";
-                            snapshot.style.display = "none";
-                            beta.style.display = "none";
-                            alpha.style.display = "none";
-                        } else if (element.value == "snapshot") {
-                            normal.style.display = "none";
-                            snapshot.style.display = "";
-                            beta.style.display = "none";
-                            alpha.style.display = "none";
-                        } else if (element.value == "beta") {
-                            normal.style.display = "none";
-                            snapshot.style.display = "none";
-                            beta.style.display = "";
-                            alpha.style.display = "none";
-                        } else if (element.value == "alpha") {
-                            normal.style.display = "none";
-                            snapshot.style.display = "none";
-                            beta.style.display = "none";
-                            alpha.style.display = "";
-                        }
-                    });
-                });
-
-                //si vanilla está seleccionado, style.display = "" en todos los radio de tipo de versión
-                //en cambio, si está seleccionado otra versión que nosea vanilla, style.display = "none" en todos los radio de tipo de versión
-
-                const radio2 = document.getElementsByName("option");
-                const fabric = document.getElementById("versionesFabric");
-                const fabricVersionType = document.getElementById("selectFabric");
-                const forge = document.getElementById("versionesForge");
-                const forgeVersionType = document.getElementById("selectForge");
-                const quilt = document.getElementById("versionesQuilt");
-                const quiltVersionType = document.getElementById("selectQuilt");
-                const optifine = document.getElementById("versionesOptiFine");
-                const optifineVersionType = document.getElementById("selectOptiFine");
-                const clientes = document.getElementById("versionesClientes");
-                const clientesVersionType = document.getElementById("selectClientes");
-
-                let titleVersions = document.getElementById("titleVersions");
-                let subtitleVersions = document.getElementById("subtitleVersions");
-                let versionImg = document.getElementById("versionImg");
-
-                deleteButton.style.display = "none";
-
-                tipoDeVersiones.style.display = "none";
-                fabric.style.display = "none";
-                forge.style.display = "none";
-                quilt.style.display = "none";
-                optifine.style.display = "none";
-                clientes.style.display = "none";
-
-                for (let i = 0; i < versionBattlyData.length; i++) {
-                    if (versionBattlyData[i].type === "client") {
-                        clientesVersionType.innerHTML += `<option value="${versionBattlyData[i].version}" img="${versionBattlyData[i].imgUrl}" download="${versionBattlyData[i].downlaodUrl}" folderName="${versionBattlyData[i].folderName}">${versionBattlyData[i].name}</option>`;
-                    }
-                }
-
-                radio2.forEach((element) => {
-                    element.addEventListener("click", () => {
-                        if (element.value == "vanilla") {
-                            versionImg.src =
-                                "./assets/images/icons/minecraft.png";
-                            tipoDeVersiones.style.display = "";
-                            radioNormal.style.display = "";
-                            radioSnapshot.style.display = "";
-                            fabric.style.display = "none";
-                            forge.style.display = "none";
-                            quilt.style.display = "none";
-                            optifine.style.display = "none";
-                            clientes.style.display = "none";
-                            titleVersions.innerHTML = "Java";
-                            subtitleVersions.innerHTML =
-                                '<i class="fas fa-download"></i> ' + normalVersionType.value;
-                        } else if (element.value == "fabric") {
-                            versionImg.src =
-                                "./assets/images/icons/fabric.png";
-                            tipoDeVersiones.style.display = "none";
-                            fabric.style.display = "";
-                            forge.style.display = "none";
-                            quilt.style.display = "none";
-                            optifine.style.display = "none";
-                            clientes.style.display = "none";
-                            titleVersions.innerHTML = "Fabric";
-                            subtitleVersions.innerHTML =
-                                '<i class="fas fa-download"></i> ' +
-                                fabricVersionType.value.replace("-fabric", "");
-                        } else if (element.value == "forge") {
-                            versionImg.src =
-                                "./assets/images/icons/forge.png"
-                            tipoDeVersiones.style.display = "none";
-                            fabric.style.display = "none";
-                            forge.style.display = "";
-                            quilt.style.display = "none";
-                            optifine.style.display = "none";
-                            clientes.style.display = "none";
-                            titleVersions.innerHTML = "Forge";
-                            subtitleVersions.innerHTML =
-                                '<i class="fas fa-download"></i> ' +
-                                forgeVersionType.value.replace("-forge", "");
-                        } else if (element.value == "quilt") {
-                            versionImg.src =
-                                "./assets/images/icons/quilt.png";
-                            tipoDeVersiones.style.display = "none";
-                            fabric.style.display = "none";
-                            forge.style.display = "none";
-                            quilt.style.display = "";
-                            optifine.style.display = "none";
-                            clientes.style.display = "none";
-                            titleVersions.innerHTML = "Quilt";
-                            subtitleVersions.innerHTML =
-                                '<i class="fas fa-download"></i> ' +
-                                quiltVersionType.value.replace("-quilt", "");
-                        } else if (element.value == "optifine") {
-                            versionImg.src =
-                                "./assets/images/icons/optifine.png";
-                            tipoDeVersiones.style.display = "none";
-                            fabric.style.display = "none";
-                            forge.style.display = "none";
-                            quilt.style.display = "none";
-                            optifine.style.display = "";
-                            clientes.style.display = "none";
-                            titleVersions.innerHTML = "OptiFine";
-                            subtitleVersions.innerHTML =
-                                '<i class="fas fa-download"></i> ' +
-                                optifineVersionType.value.replace("-optifine", "");
-                        } else if (element.value == "clientes") {
-                            versionImg.src =
-                                "./assets/images/icons/clients.png";
-                            tipoDeVersiones.style.display = "none";
-                            fabric.style.display = "none";
-                            forge.style.display = "none";
-                            quilt.style.display = "none";
-                            optifine.style.display = "none";
-                            clientes.style.display = "";
-                            titleVersions.innerHTML = "Clientes";
-                            subtitleVersions.innerHTML =
-                                '<i class="fas fa-download"></i> ' +
-                                clientesVersionType.name;
-                        }
-                    });
-                });
-
-                normalVersionType.addEventListener("change", () => {
-                    subtitleVersions.innerHTML =
-                        '<i class="fas fa-download"></i> ' + normalVersionType.value;
-                    if (
-                        fs.existsSync(
-                            `${dataDirectory}/.battly/versions/${normalVersionType.value}`
-                        )
-                    ) {
-                        deleteButton.style.display = "";
-                    } else {
-                        deleteButton.style.display = "none";
-                    }
-                });
-
-                snapshotVersionType.addEventListener("change", () => {
-                    subtitleVersions.innerHTML =
-                        '<i class="fas fa-download"></i> ' + snapshotVersionType.value;
-                    if (
-                        fs.existsSync(
-                            `${dataDirectory}/.battly/versions/${snapshotVersionType.value}`
-                        )
-                    ) {
-                        deleteButton.style.display = "";
-                    } else {
-                        deleteButton.style.display = "none";
-                    }
-                });
-
-                betaVersionType.addEventListener("change", () => {
-                    subtitleVersions.innerHTML =
-                        '<i class="fas fa-download"></i> ' + betaVersionType.value;
-                    if (
-                        fs.existsSync(
-                            `${dataDirectory}/.battly/versions/${betaVersionType.value}`
-                        )
-                    ) {
-                        deleteButton.style.display = "";
-                    } else {
-                        deleteButton.style.display = "none";
-                    }
-                });
-
-                alphaVersionType.addEventListener("change", () => {
-                    subtitleVersions.innerHTML =
-                        '<i class="fas fa-download"></i> ' + alphaVersionType.value;
-                    if (
-                        fs.existsSync(
-                            `${dataDirectory}/.battly/versions/${alphaVersionType.value}`
-                        )
-                    ) {
-                        deleteButton.style.display = "";
-                    } else {
-                        deleteButton.style.display = "none";
-                    }
-                });
-
-                fabricVersionType.addEventListener("change", () => {
-                    subtitleVersions.innerHTML =
-                        '<i class="fas fa-download"></i> ' +
-                        fabricVersionType.value.replace("-fabric", "");
-                });
-
-                forgeVersionType.addEventListener("change", async () => {
-                    subtitleVersions.innerHTML =
-                        '<i class="fas fa-download"></i> ' +
-                        forgeVersionType.value.replace("-forge", "");
-                    
-                    const axios = require("axios");
-                    await axios.get("https://files.minecraftforge.net/net/minecraftforge/forge/maven-metadata.json").then((response) => {
-                        let data = response.data;
-    
-                        // Agregar las opciones de "latest" y "recommended"
-                        let latestOption = document.createElement("option");
-                        latestOption.value = "latest";
-                        latestOption.innerHTML = langs.latest;
-                        selectForgeBuild.appendChild(latestOption);
-
-                        let recommendedOption = document.createElement("option");
-                        recommendedOption.value = "recommended";
-                        recommendedOption.innerHTML = langs.recommended;
-                        selectForgeBuild.appendChild(recommendedOption);
-
-                        for (let version in data) {
-                            if (version === forgeVersionType.value.replace("-forge", "")) {
-                                let build = data[version];
-                                // Limpiar el select antes de agregar nuevas opciones
-                                selectForgeBuild.innerHTML = "";
-
-                                // Agregar las opciones de "latest" y "recommended" nuevamente
-                                selectForgeBuild.appendChild(latestOption.cloneNode(true));
-                                selectForgeBuild.appendChild(recommendedOption.cloneNode(true));
-
-                                // Agregar las otras versiones
-                                for (let j = 0; j < build.length; j++) {
-                                    let option = document.createElement("option");
-                                    option.value = build[j];
-                                    option.innerHTML = build[j];
-                                    selectForgeBuild.appendChild(option);
-                                }
-                            }
-                        }
-                    });
-
-
-                });
-
-                quiltVersionType.addEventListener("change", () => {
-                    subtitleVersions.innerHTML =
-                        '<i class="fas fa-download"></i> ' +
-                        quiltVersionType.value.replace("-quilt", "");
-                });
-
-                optifineVersionType.addEventListener("change", () => {
-                    subtitleVersions.innerHTML =
-                        '<i class="fas fa-download"></i> ' +
-                        optifineVersionType.value.replace("-optifine", "");
-                });
-
-                clientesVersionType.addEventListener("change", () => {
-                    let selectedIndex = clientesVersionType.selectedIndex;
-                    subtitleVersions.innerHTML = '<i class="fas fa-download"></i> ' + clientesVersionType.options[selectedIndex].text;
-
-                    // Obtener el valor del atributo "img"
-                    let imgUrl = clientesVersionType.options[selectedIndex].getAttribute("img");
-
-                    // Usar imgUrl según tus necesidades
-                    versionImg.src = imgUrl;
-                });
-
-
-                let selectNormal = document.getElementById("selectNormal");
-                let selectSnapshot = document.getElementById("selectSnapshot");
-                let selectBeta = document.getElementById("selectBeta");
-
-                for (let i = 0; i < releases.length; i++) {
-                    let option = document.createElement("option");
-                    option.value = releases[i].id;
-                    option.innerHTML = releases[i].id;
-                    selectNormal.appendChild(option);
-                }
-
-                for (let i = 0; i < snapshots.length; i++) {
-                    let option = document.createElement("option");
-                    option.value = snapshots[i].id;
-                    option.innerHTML = snapshots[i].id;
-                    selectSnapshot.appendChild(option);
-                }
-
-                for (let i = 0; i < betas.length; i++) {
-                    let option = document.createElement("option");
-                    option.value = betas[i].id;
-                    option.innerHTML = betas[i].id;
-                    selectBeta.appendChild(option);
-                }
-
-                for (let i = 0; i < alphas.length; i++) {
-                    let option = document.createElement("option");
-                    option.value = alphas[i].id;
-                    option.innerHTML = alphas[i].id;
-                    selectAlpha.appendChild(option);
-                }
-
-                let selectFabric = document.getElementById("selectFabric");
-                let selectForge = document.getElementById("selectForge");
-                let selectQuilt = document.getElementById("selectQuilt");
-                let selectOptiFine = document.getElementById("selectOptiFine");
-
-                for (let i = 0; i < fabricVersions.length; i++) {
-                    let option = document.createElement("option");
-                    option.value = fabricVersions[i].version;
-                    option.innerHTML = fabricVersions[i].version.replace("-fabric", "");
-                    selectFabric.appendChild(option);
-                }
-
-                for (let i = 0; i < forgeVersions.length; i++) {
-                    let option = document.createElement("option");
-                    option.value = forgeVersions[i].version;
-                    option.innerHTML = forgeVersions[i].version.replace("-forge", "");
-                    selectForge.appendChild(option);
-                }
-
-                for (let i = 0; i < quiltVersions.length; i++) {
-                    let option = document.createElement("option");
-                    option.value = quiltVersions[i].version;
-                    option.innerHTML = quiltVersions[i].version.replace("-quilt", "");
-                    selectQuilt.appendChild(option);
-                }
-
-                for (let i = 0; i < optifineVersions.length; i++) {
-                    let option = document.createElement("option");
-                    option.value = optifineVersions[i].version;
-                    option.innerHTML = optifineVersions[i].version.replace("-optifine", "");
-                    selectOptiFine.appendChild(option);
-                }
-
-                deleteButton.addEventListener("click", () => {
-                    Swal.fire({
-                        title: langs.are_you_sure,
-                        text: langs.delete_version_text,
-                        showCancelButton: true,
-                        confirmButtonColor: "#00d1b2",
-                        cancelButtonColor: "#ff3860",
-                        confirmButtonText: langs.yes_delete,
-                        cancelButtonText: langs.no_cancel,
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            fs.rmdirSync(
-                                `${dataDirectory}/.battly/versions/${normalVersionType.value}`, {
-                                recursive: true
-                            }
-                            );
-                            deleteButton.style.display = "none";
-                            Toast.fire({
-                                icon: "success",
-                                title: langs.version_deleted_correctly,
-                            });
-                        }
-                    });
-                });
-
-                let version;
-                let versionType;
-
-                //comprobar el radio seleccionado, vanilla, fabric, forge o quilt
-                //si es vanilla, comprobar si el radio de tipo de versión es normal o snapshot
-                //si es normal, comprobar el valor del select de normal
-                //si es snapshot, comprobar el valor del select de snapshot
-                //si es fabric, comprobar el valor del select de fabric
-                //si es forge, comprobar el valor del select de forge
-                //si es quilt, comprobar el valor del select de quilt
-
-                
-
-                downloadButton.addEventListener("click", async () => {
-
-                    //comprobar si hay alguna opción seleccionada
-                    if (document.querySelector('input[name="option"]:checked') == null) return Toast.fire({
-                        icon: "error",
-                        title: langs.you_need_select_version,
-                    });
-
-                    //obtener el valor de option y ver si el value de checked es vanilla
-                    if (document.querySelector('input[name="option"]:checked').value == "vanilla" && document.querySelector('input[name="opcion"]:checked') == null) return Toast.fire({
-                        icon: "error",
-                        title: langs.you_need_select_version,
-                    });
-                    
-                    let urlpkg = pkg.user ? `${pkg.url}/${pkg.user}` : pkg.url;
-                    let uuid = (await this.database.get("1234", "accounts-selected"))
-                        .value;
-                    let account = (await this.database.get(uuid.selected, "accounts"))
-                        .value;
-                    let ram = (await this.database.get("1234", "ram")).value;
-                    let Resolution = (await this.database.get("1234", "screen")).value;
-                    let launcherSettings = (await this.database.get("1234", "launcher"))
-                        .value;
-                    ipcRenderer.send("main-window-progress-loading");
-                    let radio = document.getElementsByName("option");
-                    let radio2 = document.getElementsByName("opcion");
-
-                    radio.forEach((element) => {
-                        if (element.checked) {
-                            version = element.value;
-                        }
-                    });
-
-                    radio2.forEach((element) => {
-                        if (element.checked) {
-                            versionType = element.value;
-                        }
-                    });
-
-                    let tipo_del_loader = version;
-
-                    if (version == "vanilla") {
-                        if (versionType == "normal") {
-                            version = selectNormal.value;
-                        } else if (versionType == "snapshot") {
-                            version = selectSnapshot.value;
-                        } else if (versionType == "beta") {
-                            version = selectBeta.value;
-                        } else if (versionType == "alpha") {
-                            version = selectAlpha.value;
-                        }
-                    } else if (version == "fabric") {
-                        version = selectFabric.value;
-                        versionType = "fabric";
-                    } else if (version == "forge") {
-                        version = selectForge.value;
-                        versionType = "forge";
-                    } else if (version == "quilt") {
-                        version = selectQuilt.value;
-                        versionType = "quilt";
-                    } else if (version == "optifine") {
-                        await LaunchOptiFineVersion(account, ram, Resolution, launcherSettings);
-                        return;
-                    } else if (version == "clientes") {
-                        await LaunchClientVersion(account, ram, Resolution, launcherSettings);
-                        return;
-                    }
-
-
-
-                    async function LaunchClientVersion(account, ram, Resolution, launcherSettings) {
-                      
-                        const https = require("https");
-
-                        let client = clientesVersionType.value;
-
-                        modalDiv.remove();
-
-                        // Crear el div modal principal
-                        let modalDiv1 = document.createElement("div");
-                        modalDiv1.classList.add("modal");
-                        modalDiv1.classList.add("is-active");
-
-                        // Crear el fondo del modal
-                        let modalBackground1 = document.createElement("div");
-                        modalBackground1.classList.add("modal-background");
-
-                        // Crear el div del contenido del modal
-                        let modalCard1 = document.createElement("div");
-                        modalCard1.classList.add("modal-card");
-
-                        // Crear el encabezado del modal
-                        let modalHeader1 = document.createElement("header");
-                        modalHeader1.classList.add("modal-card-head");
-
-                        let modalTitle1 = document.createElement("p");
-                        modalTitle1.classList.add("modal-card-title");
-                        modalTitle1.innerText = `${langs.downloading_client}...`;
-
-                        modalHeader1.appendChild(modalTitle1);
-
-                        // Crear la sección del cuerpo del modal
-                        let modalSection1 = document.createElement("section");
-                        modalSection1.classList.add("modal-card-body");
-
-                        let cardDiv1 = document.createElement("div");
-                        cardDiv1.classList.add("card");
-                        let cardContentDiv1 = document.createElement("div");
-                        cardContentDiv1.classList.add("card-content");
-
-                        let contentDiv1 = document.createElement("div");
-                        contentDiv1.classList.add("content");
-
-                        let progressText1 = document.createElement("span");
-                        progressText1.style.fontSize = "15px";
-                        progressText1.innerText = langs.starting_download_client_can_take;
-
-                        const progressBar1 = document.createElement("progress");
-                        progressBar1.className = "progress is-info";
-                        progressBar1.setAttribute("max", "100");
-                        progressBar1.style.borderRadius = "5px";
-
-                        let logText1 = document.createElement("span");
-                        logText1.style.fontSize = "15px";
-                        logText1.innerText = langs.log;
-
-                        let logTextArea1 = document.createElement("textarea");
-                        logTextArea1.classList.add("textarea");
-                        logTextArea1.classList.add("is-link");
-                        logTextArea1.placeholder = langs.battly_log
-                        logTextArea1.disabled = true;
-                        logTextArea1.style.overflow = "hidden";
-
-                        contentDiv1.appendChild(progressText1);
-                        contentDiv1.appendChild(document.createElement("br"));
-                        contentDiv1.appendChild(progressBar1);
-                        contentDiv1.appendChild(document.createElement("br"));
-                        contentDiv1.appendChild(logText1);
-                        contentDiv1.appendChild(logTextArea1);
-                        cardContentDiv1.appendChild(contentDiv1);
-
-                        let cardFooterDiv1 = document.createElement("div");
-                        cardFooterDiv1.classList.add("card-footer");
-
-                        let cardFooterItemDiv1 = document.createElement("div");
-                        cardFooterItemDiv1.classList.add("card-footer-item");
-
-                        let footerText1 = document.createElement("p");
-                        footerText1.style.fontSize = "10px";
-                        footerText1.innerHTML = langs.mojang_copyright;
-
-                        cardFooterItemDiv1.appendChild(footerText1);
-                        cardFooterDiv1.appendChild(cardFooterItemDiv1);
-                        cardContentDiv1.appendChild(contentDiv1);
-                        cardDiv1.appendChild(cardContentDiv1);
-
-                        modalSection1.appendChild(cardDiv1);
-
-                        /* <footer class="modal-card-foot">
-      <button class="button is-info" id="guardar-logs-inicio">Guardar Logs</button>
-    </footer>
-*/
-
-                        // Crear el pie del modal
-                        let modalFooter1 = document.createElement("footer");
-                        modalFooter1.classList.add("modal-card-foot");
-
-                        let guardarLogsInicio = document.createElement("button");
-                        guardarLogsInicio.classList.add("button");
-                        guardarLogsInicio.classList.add("is-info");
-                        guardarLogsInicio.id = "guardar-logs-inicio";
-                        guardarLogsInicio.innerText = langs.save_logs;
-
-                        modalFooter1.appendChild(guardarLogsInicio);
-
-                        // Agregar elementos al modal
-                        modalCard1.appendChild(modalHeader1);
-                        modalCard1.appendChild(modalSection1);
-                        modalCard1.appendChild(modalFooter1);
-
-                        modalDiv1.appendChild(modalBackground1);
-                        modalDiv1.appendChild(modalCard1);
-
-                        // Agregar el modal al cuerpo del documento
-                        document.body.appendChild(modalDiv1);
-
-                        ipcRenderer.send("main-window-progress-loading");
-
-                      
-                        const clientURL = clientesVersionType.options[clientesVersionType.selectedIndex].getAttribute("download");
-                        const folderName = clientesVersionType.options[clientesVersionType.selectedIndex].getAttribute("folderName");
-
-                        async function downloadFiles() {
-                            try {
-                                // Crear carpeta
-                                await fs.mkdirSync(`${dataDirectory}/.battly/temp`, {
-                                    recursive: true
-                                });
-
-                                // Descargar archivo JAR
-                                const zipPath = `${dataDirectory}/.battly/temp/${client}.zip`;
-                                const zipFile = await fs.createWriteStream(zipPath);
-                                const response = await downloadFile(clientURL, zipFile);
-                            } catch (error) {
-                                console.error('Error:', error);
-                            }
-                        }
-                      
-                        async function downloadFile(url, file) {
-                            return new Promise((resolve, reject) => {
-                                https.get(url, (response) => {
-                                    let totalLength = response.headers['content-length'];
-                                    let actual = 0;
-                                    let progress = 0;
-            
-                                    if (response.statusCode === 200) {
-                                        logTextArea1.value += `🔄 ${langs.downloading} ${folderName}...\n`;
-                                        updateTextareaScroll();
-                                        response.pipe(file);
-
-                                        response.on('data', (chunk) => {
-                                            actual += chunk.length;
-                                            progress = parseInt(((actual / totalLength) * 100).toFixed(0));
-
-                                            // Asegúrate de que progressBar1 es el elemento correcto para la barra de progreso
-                                            progressBar1.value = progress;
-                                        });
-
-                                        file.on('finish', () => {
-                                            file.close();
-                                            logTextArea1.value += `✅ ${folderName} ${langs.downloaded_successfully}.\n`;
-                                            updateTextareaScroll();
-                                            resolve(response);
-                                        });
-                                    } else {
-                                        logTextArea1.value += `❌ ${langs.error_downloading} ${url}. ${langs.status}: ${response.statusCode}\n`;
-                                        reject(`Error al descargar ${url}. Estado: ${response.statusCode}`);
-                                    }
-                                }).on('error', (error) => {
-                                    logTextArea1.value += `❌ ${langs.error_http}: ${error.message}\n`;
-                                    reject(`Error en la solicitud HTTP: ${error.message}`);
-                                });
-                            });
-                        }
-
-                        const ADM = require("adm-zip");
-
-                        async function ExtractFiles() {
-                            const zipFilePath = `${dataDirectory}/.battly/temp/${client}.zip`;
-                            const extractPath = `${dataDirectory}/.battly`;
-
-                            const zip = new ADM(zipFilePath);
-
-                            // Obtener la lista de entradas en el zip
-                            const entries = zip.getEntries();
-
-                            // Establecer el máximo de la barra de progreso al número total de archivos
-                            progressBar1.max = entries.length;
-
-                            // Extraer cada archivo por separado
-                            for (let index = 0; index < entries.length; index++) {
-                                const entry = entries[index];
-
-                                let progress = parseInt(((index + 1) / entries.length) * 100).toFixed(0);
-                                // Mostrar progreso
-                                logTextArea1.value += `🔄 ${langs.extracting} ${entry.name} - ${langs.progress}: ${progress}%\n`;
-        
-                                progressBar1.value = index + 1;
-
-                                zip.extractEntryTo(entry, extractPath, true, true);
-
-                                updateTextareaScroll();
-                            }
-
-                            logTextArea1.value += `✅ ${langs.files_extracted_successfully}\n`;
-                            updateTextareaScroll();
-                            progressBar1.max = 100;
-                        }
-
-                        async function DeleteTempFiles() {
-                            logTextArea1.value += `🔄 ${langs.deleting_temp_files}...\n`;
-                            updateTextareaScroll();
-
-                            await fs.rmdirSync(`${dataDirectory}/.battly/temp`, {
-                                recursive: true
-                            });
-                            logTextArea1.value += `✅ ${langs.temp_files_deleted_successfully}\n`;
-                            updateTextareaScroll();
-                        }
-
-
-                        function updateTextareaScroll() {
-                            logTextArea1.scrollTop = logTextArea1.scrollHeight; // Hacer que el scrollTop sea igual a la altura del contenido
-                        }
-                      
-                        async function CheckAndDownloadJava() {
-                            if (!fs.existsSync(`${dataDirectory}/.battly/versions/1.20.1`)) {
-                                modalDiv1.remove();
-
-                                let Toast_ = Swal.mixin({
-                                    toast: true,
-                                    position: "top-end",
-                                    showConfirmButton: false,
-                                    timer: 10000,
-                                    timerProgressBar: true,
-                                    didOpen: (toast) => {
-                                        toast.addEventListener("mouseenter", Swal.stopTimer);
-                                        toast.addEventListener("mouseleave", Swal.resumeTimer);
-                                    },
-                                });
-                                Toast_.fire({
-                                    icon: "error",
-                                    title: langs.error_downloading_version,
-                                    text: langs.version_java_error
-                                });
-                                return;
-                            }
-                        }
-
-                        const launch = new Client();
-
-                        // Descargar los archivos y esperar
-                        try {
-                            progressText1.innerHTML = `🔄 ${langs.downloading_files}...`;
-                            logText1.innerHTML = `🔄 ${langs.downloading_files}...`;
-                            updateTextareaScroll();
-                            await CheckAndDownloadJava();
-                            await downloadFiles();
-                            await ExtractFiles();
-                            await DeleteTempFiles();
-
-                            let realVersion = await fs.readFileSync(`${dataDirectory}/.battly/versions/${folderName}/${folderName}.json`, "utf-8");
-                            realVersion = JSON.parse(realVersion).assets;
-
-                            logText1.innerHTML = `🔄 ${langs.installing_minecraft_files}...`;
-                            logTextArea1.innerHTML += `✅ ${langs.client_files_downloaded_successfully}.\n🔄 ${langs.installing_minecraft_files}...\n`;
-                            updateTextareaScroll();
-                            progressBar1.value = 100;
-                            // Realizar el lanzamiento después de descargar los archivos
-                            let javapath = localStorage.getItem("java-path");
-                            if (!javapath || javapath == null || javapath == undefined) {
-                                launch.launch({
-                                    authorization: account,
-                                    detached: false,
-                                    timeout: 10000,
-                                    root: `${dataDirectory}/.battly`,
-                                    path: `${dataDirectory}/.battly`,
-                                    overrides: {
-                                        detached: false,
-                                        screen: screen,
-                                    },
-                                    downloadFileMultiple: 20,
-                                    version: {
-                                        custom: folderName,
-                                        number: realVersion,
-                                        type: "release"
-
-                                    },
-                                    verify: false,
-                                    ignored: ["loader"],
-                                    memory: {
-                                        min: `${ram.ramMin * 1024}M`,
-                                        max: `${ram.ramMax * 1024}M`,
-                                    },
-                                });
-                            } else {
-                                launch.launch({
-                                    authorization: account,
-                                    detached: false,
-                                    timeout: 10000,
-                                    root: `${dataDirectory}/.battly`,
-                                    path: `${dataDirectory}/.battly`,
-                                    overrides: {
-                                        detached: false,
-                                        screen: screen,
-                                    },
-                                    downloadFileMultiple: 20,
-                                    version: {
-                                        custom: folderName,
-                                        number: realVersion,
-                                        type: "release"
-
-                                    },
-                                    java: true,
-                                    javaPath: javapath,
-                                    verify: false,
-                                    ignored: ["loader"],
-                                    memory: {
-                                        min: `${ram.ramMin * 1024}M`,
-                                        max: `${ram.ramMax * 1024}M`,
-                                    },
-                                });
-                            }
-
-                            launch.on('debug', (e) => {
-                                if (e.includes("Attempting to download assets")) {
-                                    progressText1.innerHTML = `🔄 ${langs.downloading_assets}...`;
-                                    logText1.innerHTML = `🔄 ${langs.downloading_assets}...`;
-                                    progressBar1.value = 0;
-                                }
-
-                                if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                                if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                                if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                                if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                                if (e.includes("Forge patcher exited with code 1")) {
-                                    ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                                    progressBar1.style.display = "none";
-                                    info.style.display = "none";
-                                    playBtn.style.display = "";
-                                }
-
-                                if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                                if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                                if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                                if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-                            });
-
-                            let inicio = false;
-                            launch.on('data', (e) => {
-                                //si sale que está iniciando, eliminar el modaldiv1
-                                if (!inicio) {
-                                    new logger("Minecraft", "#36b030");
-                                    if (e.includes("Setting user") || e.includes("Launching wrapped minecraft")) {
-                                        modalDiv1.remove();
-                                        ipcRenderer.send("new-notification", {
-                                            title: langs.minecraft_started_correctly,
-                                            body: langs.minecraft_started_correctly_body,
-                                        });
-
-                                    
-                                        if (launcherSettings.launcher.close === "close-launcher")
-                                            ipcRenderer.send("main-window-hide")
-
-                                        ipcRenderer.send("main-window-progress-reset");
-
-                                        inicio = true;
-                                    }
-                                }
-                              
-                                if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                                if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                                if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                                if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                                if (e.includes("Forge patcher exited with code 1")) {
-                                    ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                                    progressBar1.style.display = "none";
-                                    info.style.display = "none";
-                                    playBtn.style.display = "";
-                                }
-
-                                if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                                if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                                if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                                if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-                                
-                            });
-
-                            let progressShown = false;
-                            launch.on('progress', (e) => {
-                                if (!progressShown) {
-                                    logTextArea1.value += `🔄 Descargando archivos de Minecraft...`;
-                                    progressShown = true;
-                                }
-                                let progress = (e.task / e.total * 100).toFixed(2);
-                                progressText1.innerHTML = "🔄 Descargando archivos... " + progress + "%";
-                                progressBar1.value = progress
-                            });
-
-                            launch.on('close', (e) => {
-                                //eliminar el modaldiv1
-                                modalDiv1.remove();
-                                    
-                                if (launcherSettings.launcher.close === "close-launcher")
-                                    ipcRenderer.send("main-window-show");
-
-                                ipcRenderer.send('updateStatus', {
-                                    status: 'online',
-                                    details: langs.in_the_menu,
-                                    username: account.name,
-                                })
-                            });
-
-                            //download status
-                            launch.on('download-status', (e) => {
-                                if (e.type == "task") {
-                                    if (e.task == "Downloading") {
-                                        progressText1.innerHTML = "🔄 Descargando archivos... " + e.progress + "%";
-                                        progressBar1.value = e.progress;
-                                    }
-                                }
-                            });
-                        } catch (error) {
-                            console.error('Error durante la descarga:');
-                            console.error(error);
-                        }
-                    }
-                    
-
-                    async function LaunchOptiFineVersion(account, ram, Resolution, launcherSettings) {
-                      
-                        const https = require("https");
-                        const fs = require("fs");
-                        const util = require('util');
-                        const mkdir = util.promisify(fs.mkdir);
-
-                        let version = selectOptiFine.value;
-                        version = version.replace("-optifine", "");
-
-                        // Obtén el valor de fileName desde los datos de la versión
-                        let fileName = "";
-                        let realVersion = "";
-                        for (let i = 0; i < optifineVersions.length; i++) {
-                            if (optifineVersions[i].realVersion == version) {
-                                fileName = optifineVersions[i].fileName;
-                                realVersion = optifineVersions[i].realVersion;
-                            }
-                        }
-
-                        modalDiv.remove();
-
-                        // Crear el div modal principal
-                        let modalDiv1 = document.createElement("div");
-                        modalDiv1.classList.add("modal");
-                        modalDiv1.classList.add("is-active");
-
-                        // Crear el fondo del modal
-                        let modalBackground1 = document.createElement("div");
-                        modalBackground1.classList.add("modal-background");
-
-                        // Crear el div del contenido del modal
-                        let modalCard1 = document.createElement("div");
-                        modalCard1.classList.add("modal-card");
-
-                        // Crear el encabezado del modal
-                        let modalHeader1 = document.createElement("header");
-                        modalHeader1.classList.add("modal-card-head");
-
-                        let modalTitle1 = document.createElement("p");
-                        modalTitle1.classList.add("modal-card-title");
-                        modalTitle1.innerText = `${langs.downloading_version}...`;
-
-                        modalHeader1.appendChild(modalTitle1);
-
-                        // Crear la sección del cuerpo del modal
-                        let modalSection1 = document.createElement("section");
-                        modalSection1.classList.add("modal-card-body");
-
-                        let cardDiv1 = document.createElement("div");
-                        cardDiv1.classList.add("card");
-                        let cardContentDiv1 = document.createElement("div");
-                        cardContentDiv1.classList.add("card-content");
-
-                        let contentDiv1 = document.createElement("div");
-                        contentDiv1.classList.add("content");
-
-                        let progressText1 = document.createElement("span");
-                        progressText1.style.fontSize = "15px";
-                        progressText1.innerText = langs.starting_download_can_take;
-
-                        const progressBar1 = document.createElement("progress");
-                        progressBar1.className = "progress is-info";
-                        progressBar1.setAttribute("max", "100");
-                        progressBar1.style.borderRadius = "5px";
-
-                        let logText1 = document.createElement("span");
-                        logText1.style.fontSize = "15px";
-                        logText1.innerText = langs.log;
-
-                        let logTextArea1 = document.createElement("textarea");
-                        logTextArea1.classList.add("textarea");
-                        logTextArea1.classList.add("is-link");
-                        logTextArea1.placeholder = langs.battly_log;
-                        logTextArea1.disabled = true;
-                        logTextArea1.style.overflow = "hidden";
-
-                        contentDiv1.appendChild(progressText1);
-                        contentDiv1.appendChild(document.createElement("br"));
-                        contentDiv1.appendChild(progressBar1);
-                        contentDiv1.appendChild(document.createElement("br"));
-                        contentDiv1.appendChild(logText1);
-                        contentDiv1.appendChild(logTextArea1);
-                        cardContentDiv1.appendChild(contentDiv1);
-
-                        let cardFooterDiv1 = document.createElement("div");
-                        cardFooterDiv1.classList.add("card-footer");
-
-                        let cardFooterItemDiv1 = document.createElement("div");
-                        cardFooterItemDiv1.classList.add("card-footer-item");
-
-                        let footerText1 = document.createElement("p");
-                        footerText1.style.fontSize = "10px";
-                        footerText1.innerHTML = langs.mojang_copyright;
-
-                        cardFooterItemDiv1.appendChild(footerText1);
-                        cardFooterDiv1.appendChild(cardFooterItemDiv1);
-                        cardContentDiv1.appendChild(contentDiv1);
-                        cardDiv1.appendChild(cardContentDiv1);
-
-                        modalSection1.appendChild(cardDiv1);
-
-                        /* <footer class="modal-card-foot">
-      <button class="button is-info" id="guardar-logs-inicio">Guardar Logs</button>
-    </footer>
-*/
-
-                        // Crear el pie del modal
-                        let modalFooter1 = document.createElement("footer");
-                        modalFooter1.classList.add("modal-card-foot");
-
-                        let guardarLogsInicio = document.createElement("button");
-                        guardarLogsInicio.classList.add("button");
-                        guardarLogsInicio.classList.add("is-info");
-                        guardarLogsInicio.id = "guardar-logs-inicio";
-                        guardarLogsInicio.innerText = langs.save_logs;
-
-                        modalFooter1.appendChild(guardarLogsInicio);
-
-                        // Agregar elementos al modal
-                        modalCard1.appendChild(modalHeader1);
-                        modalCard1.appendChild(modalSection1);
-                        modalCard1.appendChild(modalFooter1);
-
-                        modalDiv1.appendChild(modalBackground1);
-                        modalDiv1.appendChild(modalCard1);
-
-                        // Agregar el modal al cuerpo del documento
-                        document.body.appendChild(modalDiv1);
-
-                        ipcRenderer.send("main-window-progress-loading");
-
-                        const jarURL = `https://raw.githubusercontent.com/1ly4s0/battlylauncher-optifine/main/${fileName}/${fileName}.jar`;
-                        const jsonURL = `https://raw.githubusercontent.com/1ly4s0/battlylauncher-optifine/main/${fileName}/${fileName}.json`;
-
-                        async function downloadFiles() {
-                            try {
-                                // Crear carpeta
-                                await mkdir(`${dataDirectory}/.battly/versions/${fileName}`, {
-                                    recursive: true
-                                });
-
-                                // Descargar archivo JAR
-                                const jarPath = `${dataDirectory}/.battly/versions/${fileName}/${fileName}.jar`;
-                                const jarFile = fs.createWriteStream(jarPath);
-                                const response = await downloadFile(jarURL, jarFile);
-
-                                // Descargar archivo JSON
-                                const jsonPath = `${dataDirectory}/.battly/versions/${fileName}/${fileName}.json`;
-                                const jsonFile = fs.createWriteStream(jsonPath);
-                                const jsonResponse = await downloadFile(jsonURL, jsonFile);
-                            } catch (error) {
-                                console.error('Error:', error);
-                            }
-                        }
-
-                        function downloadFile(url, file) {
-                            return new Promise((resolve, reject) => {
-                                https.get(url, (response) => {
-                                    if (response.statusCode === 200) {
-                                        response.pipe(file);
-                                        file.on('finish', () => {
-                                            file.close();
-                                            resolve(response);
-                                        });
-                                    } else {
-                                        logTextArea1.value += `❌ Error al descargar ${url}. Estado: ${response.statusCode}\n`;
-                                        reject(`Error al descargar ${url}. Estado: ${response.statusCode}`);
-                                    }
-                                }).on('error', (error) => {
-                                    logTextArea1.value += `❌ Error en la solicitud HTTP: ${error.message}\n`;
-                                    reject(`Error en la solicitud HTTP: ${error.message}`);
-                                });
-                            });
-                        }
-
-                        function updateTextareaScroll() {
-                            logTextArea1.scrollTop = logTextArea1.scrollHeight; // Hacer que el scrollTop sea igual a la altura del contenido
-                        }
-
-                        async function CreateLibrariesDirectory() {
-                            if (!fs.existsSync(`${dataDirectory}/.battly/libraries`)) {
-                                logTextArea1.value += "🔄 Creando carpeta libraries...\n";
-                                updateTextareaScroll();
-                                fs.mkdirSync(`${dataDirectory}/.battly/libraries`, {
-                                    recursive: true
-                                });
-                                logTextArea1.value += "✅ Carpeta libraries creada.\n";
-                                progressBar1.value = 10;
-                                updateTextareaScroll();
-                            } else {
-                                logTextArea1.value += "⏩ La carpeta libraries ya existe. Saltando...\n";
-                                progressBar1.value = 10;
-                                updateTextareaScroll();
-                            }
-
-                            if (!fs.existsSync(`${dataDirectory}/.battly/libraries/optifine`)) {
-                                logTextArea1.value += "🔄 Creando carpeta optifine...\n";
-                                updateTextareaScroll();
-                                fs.mkdirSync(`${dataDirectory}/.battly/libraries/optifine`, {
-                                    recursive: true
-                                });
-                                logTextArea1.value += "✅ Carpeta optifine creada.\n";
-                                progressBar1.value = 20;
-                                updateTextareaScroll();
-                            } else {
-                                logTextArea1.value += "⏩ La carpeta optifine ya existe. Saltando...\n";
-                                progressBar1.value = 20;
-                                updateTextareaScroll();
-                            }
-
-                            if (!fs.existsSync(`${dataDirectory}/.battly/libraries/optifine/OptiFine`)) {
-                                logTextArea1.value += "🔄 Creando carpeta OptiFine...\n";
-                                updateTextareaScroll();
-                                fs.mkdirSync(`${dataDirectory}/.battly/libraries/optifine/OptiFine`, {
-                                    recursive: true
-                                });
-                                logTextArea1.value += "✅ Carpeta OptiFine creada.\n";
-                                progressBar1.value = 30;
-                                updateTextareaScroll();
-                            } else {
-                                logTextArea1.value += "⏩ La carpeta OptiFine ya existe. Saltando...\n";
-                                progressBar1.value = 30;
-                                updateTextareaScroll();
-                            }
-
-                            if (!fs.existsSync(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of`)) {
-                                logTextArea1.value += "🔄 Creando carpeta launchwrapper-of...\n";
-                                updateTextareaScroll();
-                                fs.mkdirSync(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of`, {
-                                    recursive: true
-                                });
-                                logTextArea1.value += "✅ Carpeta launchwrapper-of creada.\n";
-                                progressBar1.value = 40;
-                                updateTextareaScroll();
-                            } else {
-                                logTextArea1.value += "⏩ La carpeta launchwrapper-of ya existe. Saltando...\n";
-                                progressBar1.value = 40;
-                                updateTextareaScroll();
-                            }
-
-                            if (!fs.existsSync(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.1`)) {
-                                logTextArea1.value += "🔄 Creando carpeta 2.1...\n";
-                                updateTextareaScroll();
-                                fs.mkdirSync(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.1`, {
-                                    recursive: true
-                                });
-                                logTextArea1.value += "✅ Carpeta 2.1 creada.\n";
-                                progressBar1.value = 50;
-                                updateTextareaScroll();
-                            } else {
-                                logTextArea1.value += "⏩ La carpeta 2.1 ya existe. Saltando...\n";
-                                progressBar1.value = 50;
-                                updateTextareaScroll();
-                            }
-
-                            if (!fs.existsSync(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.2`)) {
-                                logTextArea1.value += "🔄 Creando carpeta 2.2...\n";
-                                updateTextareaScroll();
-                                fs.mkdirSync(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.2`, {
-                                    recursive: true
-                                });
-                                logTextArea1.value += "✅ Carpeta 2.2 creada.\n";
-                                progressBar1.value = 60;
-                                updateTextareaScroll();
-                            } else {
-                                logTextArea1.value += "⏩ La carpeta 2.2 ya existe. Saltando...\n";
-                                progressBar1.value = 60;
-                                updateTextareaScroll();
-                            }
-
-                            if (!fs.existsSync(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.3`)) {
-                                logTextArea1.value += "🔄 Creando carpeta 2.3...\n";
-                                updateTextareaScroll();
-                                fs.mkdirSync(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.3`, {
-                                    recursive: true
-                                });
-                                logTextArea1.value += "✅ Carpeta 2.3 creada.\n";
-                                progressBar1.value = 70;
-                                updateTextareaScroll();
-                            } else {
-                                logTextArea1.value += "⏩ La carpeta 2.3 ya existe. Saltando...\n";
-                                progressBar1.value = 70;
-                                updateTextareaScroll();
-                            }
-
-                            if (!fs.existsSync(`${dataDirectory}/.battly/libraries/optifine/OptiFine/${fileName.replace("-OptiFine", "")}`)) {
-                                logTextArea1.value += "🔄 Creando carpeta " + fileName.replace("-OptiFine", "") + "...\n";
-                                updateTextareaScroll();
-                                fs.mkdirSync(`${dataDirectory}/.battly/libraries/optifine/OptiFine/${fileName.replace("-OptiFine", "")}`, {
-                                    recursive: true
-                                });
-                                logTextArea1.value += "✅ Carpeta " + fileName.replace("-OptiFine", "") + " creada.\n";
-                                progressBar1.value = 80;
-                                updateTextareaScroll();
-                            } else {
-                                logTextArea1.value += "⏩ La carpeta " + fileName.replace("-OptiFine", "") + " ya existe. Saltando...\n";
-                                progressBar1.value = 80;
-                                updateTextareaScroll();
-                            }
-
-                            const libraryJARURL = `https://raw.githubusercontent.com/1ly4s0/battlylauncher-optifine/main/libraries/optifine/OptiFine/${fileName.replace("-OptiFine", "")}/OptiFine-${fileName.replace("-OptiFine", "")}.jar`;
-
-                            logTextArea1.value += "🔄 Descargando archivo JAR de OptiFine...\n";
-                            updateTextareaScroll();
-                            const libraryJARFile = fs.createWriteStream(`${dataDirectory}/.battly/libraries/optifine/OptiFine/${fileName.replace("-OptiFine", "")}/OptiFine-${fileName.replace("-OptiFine", "")}.jar`);
-                            const libraryJARResponse = await downloadFile(libraryJARURL, libraryJARFile);
-                            logTextArea1.value += `✅ Archivo JAR de OptiFine descargado: ${libraryJARResponse.statusCode}\n`;
-                            updateTextareaScroll();
-
-                            /* ahora descargar launchwrapper-of-2.1.jar, launchwrapper-of-2.2.jar y launchwrapper-of-2.3.jar  y ponerlos en sus respectivas carpetas */
-
-                            const wrapperJARURL21 = `https://raw.githubusercontent.com/1ly4s0/battlylauncher-optifine/main/libraries/optifine/launchwrapper-of/2.1/launchwrapper-of-2.1.jar`;
-                            const wrapperJARURL22 = `https://raw.githubusercontent.com/1ly4s0/battlylauncher-optifine/main/libraries/optifine/launchwrapper-of/2.2/launchwrapper-of-2.2.jar`;
-                            const wrapperJARURL23 = `https://raw.githubusercontent.com/1ly4s0/battlylauncher-optifine/main/libraries/optifine/launchwrapper-of/2.3/launchwrapper-of-2.3.jar`;
-
-                            const wrapperJAR21File = fs.createWriteStream(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.1/launchwrapper-of-2.1.jar`);
-                            logTextArea1.value += "🔄 Descargando archivo launchwrapper 2.1...\n";
-                            updateTextareaScroll();
-
-                            const wrapperJAR22File = fs.createWriteStream(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.2/launchwrapper-of-2.2.jar`);
-                            logTextArea1.value += "🔄 Descargando archivo launchwrapper 2.2...\n";
-                            updateTextareaScroll();
-
-                            const wrapperJAR23File = fs.createWriteStream(`${dataDirectory}/.battly/libraries/optifine/launchwrapper-of/2.3/launchwrapper-of-2.3.jar`);
-                            logTextArea1.value += "🔄 Descargando archivo launchwrapper 2.3...\n";
-                            updateTextareaScroll();
-
-                            const wrapperJAR21Response = await downloadFile(wrapperJARURL21, wrapperJAR21File);
-                            logTextArea1.value += `✅ Archivo JAR de launchwrapper-of-2.1 descargado: ${wrapperJAR21Response.statusCode}\n`;
-                            progressBar1.value = 85;
-                            updateTextareaScroll();
-
-                            const wrapperJAR22Response = await downloadFile(wrapperJARURL22, wrapperJAR22File);
-                            logTextArea1.value += `✅ Archivo JAR de launchwrapper-of-2.2 descargado: ${wrapperJAR22Response.statusCode}\n`;
-                            progressBar1.value = 90;
-                            updateTextareaScroll();
-
-                            const wrapperJAR23Response = await downloadFile(wrapperJARURL23, wrapperJAR23File);
-                            logTextArea1.value += `✅ Archivo JAR de launchwrapper-of-2.3 descargado: ${wrapperJAR23Response.statusCode}\n`;
-                            progressBar1.value = 95;
-                            updateTextareaScroll();
-                        }
-                      
-                        async function CheckAndDownloadJava() {
-                            if (!fs.existsSync(`${dataDirectory}/.battly/versions/1.20.1`)) {
-                                modalDiv1.remove();
-
-                                let Toast_ = Swal.mixin({
-                                    toast: true,
-                                    position: "top-end",
-                                    showConfirmButton: false,
-                                    timer: 10000,
-                                    timerProgressBar: true,
-                                    didOpen: (toast) => {
-                                        toast.addEventListener("mouseenter", Swal.stopTimer);
-                                        toast.addEventListener("mouseleave", Swal.resumeTimer);
-                                    },
-                                });
-                                Toast_.fire({
-                                    icon: "error",
-                                    title: "Error al descargar la versión.",
-                                    text: "No tienes la versión requerida de Java, para descargarla, descarga la 1.20.1 de vanilla y luego vuelve a intentarlo."
-                                });
-                                return;
-                            }
-                        }
-
-                        const launch = new Client();
-
-                        // Descargar los archivos y esperar
-                        try {
-                            progressText1.innerHTML = "🔄 Descargando archivos...";
-                            logText1.innerHTML = "🔄 Descargando archivos...";
-                            await CheckAndDownloadJava();
-                            await downloadFiles();
-                            await CreateLibrariesDirectory();
-
-                            progressText1.innerHTML = "✅ Descargando archivos... Completado.";
-                            logText1.innerHTML = "🔄 Abriendo OptiFine...";
-                            logTextArea1.innerHTML += `✅ Descarga de archivos completada. Instalando dependencias...`;
-                            progressBar1.value = 100;
-
-                            // Realizar el lanzamiento después de descargar los archivos
-                            let javapath = localStorage.getItem("java-path");
-                            if (!javapath || javapath == null || javapath == undefined) {
-                                launch.launch({
-                                    authorization: account,
-                                    detached: false,
-                                    timeout: 10000,
-                                    root: `${dataDirectory}/.battly`,
-                                    path: `${dataDirectory}/.battly`,
-                                    overrides: {
-                                        detached: false,
-                                        screen: screen,
-                                    },
-                                    downloadFileMultiple: 20,
-                                    version: {
-                                        custom: fileName,
-                                        number: realVersion,
-                                        type: "release"
-
-                                    },
-                                    verify: false,
-                                    ignored: ["loader"],
-                                    memory: {
-                                        min: `${ram.ramMin * 1024}M`,
-                                        max: `${ram.ramMax * 1024}M`,
-                                    },
-                                });
-                            } else {
-                                launch.launch({
-                                    authorization: account,
-                                    detached: false,
-                                    timeout: 10000,
-                                    root: `${dataDirectory}/.battly`,
-                                    path: `${dataDirectory}/.battly`,
-                                    overrides: {
-                                        detached: false,
-                                        screen: screen,
-                                    },
-                                    downloadFileMultiple: 20,
-                                    version: {
-                                        custom: fileName,
-                                        number: realVersion,
-                                        type: "release"
-
-                                    },
-                                    java: true,
-                                    javaPath: javapath,
-                                    verify: false,
-                                    ignored: ["loader"],
-                                    memory: {
-                                        min: `${ram.ramMin * 1024}M`,
-                                        max: `${ram.ramMax * 1024}M`,
-                                    },
-                                });
-                            }
-
-                            launch.on('debug', (e) => {
-                                if (e.includes("Attempting to download assets")) {
-                                    progressText1.innerHTML = "🔄 Descargando archivos...";
-                                    logText1.innerHTML = "🔄 Descargando archivos...";
-                                    progressBar1.value = 0;
-                                }
-
-                                if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                                if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                                if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                                if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                                if (e.includes("Forge patcher exited with code 1")) {
-                                    ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                                    progressBar1.style.display = "none";
-                                    info.style.display = "none";
-                                    playBtn.style.display = "";
-                                }
-
-                                if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                                if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                                if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                                if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-                            });
-
-                            let inicio = false;
-                            launch.on('data', (e) => {
-                                //si sale que está iniciando, eliminar el modaldiv1
-                                if (!inicio) {
-                                    new logger("Minecraft", "#36b030");
-                                    if (e.includes("Setting user") || e.includes("Launching wrapped minecraft")) {
-                                        modalDiv1.remove();
-                                        ipcRenderer.send("new-notification", {
-                                            title: langs.minecraft_started_correctly,
-                                            body: langs.minecraft_started_correctly_body,
-                                        });
-
-                                    
-                                        if (launcherSettings.launcher.close === "close-launcher")
-                                            ipcRenderer.send("main-window-hide")
-
-                                        ipcRenderer.send("main-window-progress-reset");
-
-                                        inicio = true;
-                                    }
-                                }
-                              
-                                if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                                if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                                if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                                if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                                if (e.includes("Forge patcher exited with code 1")) {
-                                    ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                                    progressBar1.style.display = "none";
-                                    info.style.display = "none";
-                                    playBtn.style.display = "";
-                                }
-
-                                if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                                if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                                if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                                if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-                            });
-
-                            let progressShown = false;
-                            launch.on('progress', (e) => {
-                                if (!progressShown) {
-                                    logTextArea1.value += `🔄 Descargando archivos de Minecraft...`;
-                                    progressShown = true;
-                                }
-                                
-                                let progress = (e.task / e.total * 100).toFixed(2);
-                                progressText1.innerHTML = "🔄 Descargando archivos... " + progress + "%";
-                                progressBar1.value = progress
-                            });
-
-                            launch.on('close', (e) => {
-                                //eliminar el modaldiv1
-                                modalDiv1.remove();
-                                    
-                                if (launcherSettings.launcher.close === "close-launcher")
-                                    ipcRenderer.send("main-window-show");
-
-                                ipcRenderer.send('updateStatus', {
-                                    status: 'online',
-                                    details: langs.in_the_menu,
-                                    username: account.name,
-                                })
-                            });
-
-                            //download status
-                            launch.on('download-status', (e) => {
-                                if (e.type == "task") {
-                                    if (e.task == "Downloading") {
-                                        progressText1.innerHTML = "🔄 Descargando archivos... " + e.progress + "%";
-                                        progressBar1.value = e.progress;
-                                    }
-                                }
-                            });
-                        } catch (error) {
-                            console.error('Error durante la descarga:');
-                            console.error(error);
-                        }
-                    }
-
-
-                    modalDiv.remove();
-
-                    // Crear el div modal principal
-                    let modalDiv1 = document.createElement("div");
-                    modalDiv1.classList.add("modal");
-                    modalDiv1.classList.add("is-active");
-
-                    // Crear el fondo del modal
-                    let modalBackground1 = document.createElement("div");
-                    modalBackground1.classList.add("modal-background");
-
-                    // Crear el div del contenido del modal
-                    let modalCard1 = document.createElement("div");
-                    modalCard1.classList.add("modal-card");
-
-                    // Crear el encabezado del modal
-                    let modalHeader1 = document.createElement("header");
-                    modalHeader1.classList.add("modal-card-head");
-
-                    let modalTitle1 = document.createElement("p");
-                    modalTitle1.classList.add("modal-card-title");
-                    modalTitle1.innerText = `${langs.downloading_version}...`;
-
-                    modalHeader1.appendChild(modalTitle1);
-
-                    // Crear la sección del cuerpo del modal
-                    let modalSection1 = document.createElement("section");
-                    modalSection1.classList.add("modal-card-body");
-
-                    let cardDiv1 = document.createElement("div");
-                    cardDiv1.classList.add("card");
-                    let cardContentDiv1 = document.createElement("div");
-                    cardContentDiv1.classList.add("card-content");
-
-                    let contentDiv1 = document.createElement("div");
-                    contentDiv1.classList.add("content");
-
-                    let progressText1 = document.createElement("span");
-                    progressText1.style.fontSize = "15px";
-                    progressText1.innerText = langs.starting_download_can_take;
-
-                    const progressBar1 = document.createElement("progress");
-                    progressBar1.className = "progress is-info";
-                    progressBar1.setAttribute("max", "100");
-                    progressBar1.style.borderRadius = "5px";
-
-                    let logText1 = document.createElement("span");
-                    logText1.style.fontSize = "15px";
-                    logText1.innerText = langs.log;
-
-                    let logTextArea1 = document.createElement("textarea");
-                    logTextArea1.classList.add("textarea");
-                    logTextArea1.classList.add("is-link");
-                    logTextArea1.placeholder = langs.battly_log;
-                    logTextArea1.disabled = true;
-                    logTextArea1.style.overflow = "hidden";
-
-                    contentDiv1.appendChild(progressText1);
-                    contentDiv1.appendChild(document.createElement("br"));
-                    contentDiv1.appendChild(progressBar1);
-                    contentDiv1.appendChild(document.createElement("br"));
-                    contentDiv1.appendChild(logText1);
-                    contentDiv1.appendChild(logTextArea1);
-                    cardContentDiv1.appendChild(contentDiv1);
-
-                    let cardFooterDiv1 = document.createElement("div");
-                    cardFooterDiv1.classList.add("card-footer");
-
-                    let cardFooterItemDiv1 = document.createElement("div");
-                    cardFooterItemDiv1.classList.add("card-footer-item");
-
-                    let footerText1 = document.createElement("p");
-                    footerText1.style.fontSize = "10px";
-                    footerText1.innerHTML = langs.mojang_copyright;
-
-                    cardFooterItemDiv1.appendChild(footerText1);
-                    cardFooterDiv1.appendChild(cardFooterItemDiv1);
-                    cardContentDiv1.appendChild(contentDiv1);
-                    cardDiv1.appendChild(cardContentDiv1);
-
-                    modalSection1.appendChild(cardDiv1);
-
-                    /* <footer class="modal-card-foot">
-      <button class="button is-info" id="guardar-logs-inicio">Guardar Logs</button>
-    </footer>
-*/
-
-                    // Crear el pie del modal
-                    let modalFooter1 = document.createElement("footer");
-                    modalFooter1.classList.add("modal-card-foot");
-
-                    let guardarLogsInicio = document.createElement("button");
-                    guardarLogsInicio.classList.add("button");
-                    guardarLogsInicio.classList.add("is-info");
-                    guardarLogsInicio.id = "guardar-logs-inicio";
-                    guardarLogsInicio.innerText = langs.save_logs;
-
-                    modalFooter1.appendChild(guardarLogsInicio);
-
-                    // Agregar elementos al modal
-                    modalCard1.appendChild(modalHeader1);
-                    modalCard1.appendChild(modalSection1);
-                    modalCard1.appendChild(modalFooter1);
-
-                    modalDiv1.appendChild(modalBackground1);
-                    modalDiv1.appendChild(modalCard1);
-
-                    // Agregar el modal al cuerpo del documento
-                    document.body.appendChild(modalDiv1);
-
-                    function updateTextareaScroll() {
-                        logTextArea1.scrollTop = logTextArea1.scrollHeight; // Hacer que el scrollTop sea igual a la altura del contenido
-                    }
-
-                    guardarLogsInicio.addEventListener("click", () => {
-                        this.Registros();
-                    });
-
-                    let isForgeCheckBox = false;
-                    let isFabricCheckBox = false;
-                    let isQuiltCheckBox = false;
-
-                    let settings_btn = document.getElementById("settings-btn");
-                    let select_versions = document.getElementById("select-version");
-                    let mods_btn = document.getElementById("boton_abrir_mods");
-                    let discord_btn = document.getElementById(
-                        "BotonUnirseServidorDiscord"
-                    );
-
-                    let version_real = version
-                        .replace("-extra", "")
-                        .replace("-forge", "")
-                        .replace("-fabric", "")
-                        .replace("-quilt", "");
-                    
-                    if (versionType === "forge") {
-                        version = version.replace("-forge", "");
-                        isForgeCheckBox = true;
-                        isFabricCheckBox = false;
-                        isQuiltCheckBox = false;
-                    } else if (versionType === "fabric") {
-                        version = version.replace("-fabric", "");
-                        isFabricCheckBox = true;
-                        isForgeCheckBox = false;
-                        isQuiltCheckBox = false;
-                    } else if (versionType === "quilt") {
-                        version = version.replace("-quilt", "");
-                        isQuiltCheckBox = true;
-                        isForgeCheckBox = false;
-                        isFabricCheckBox = false;
-                    }
-
-                    let type;
-                    if (isForgeCheckBox == true) {
-                        type = "forge";
-                        mcModPack = "forge";
-                    } else if (isFabricCheckBox == true) {
-                        type = "fabric";
-                        mcModPack = "fabric";
-                    } else if (isQuiltCheckBox == true) {
-                        type = "quilt";
-                        mcModPack = "quilt";
-                    } else {
-                        type = "vanilla";
-                        mcModPack = "vanilla";
-                    }
-
-                    //hacer un json.parse del archivo de versiones y obtener el dato "assets"
-
-                    //comprobar si existe el archivo de versiones
-
-                    // Si la versión acaba con -extra hacer let assets = JSON.parse(fs.readFileSync(`${dataDirectory}/.battly/versions/${version_real}/${version_real}.json`)).assets;
-                    // si no, ignorar
-                    let assets;
-                    let versionData;
-                    if (version_real === "1.8") {
-                        assets = "1.8";
-                        versionData = {
-                            number: assets,
-                            custom: version_real,
-                            type: "release",
-                        };
-                    } else if (
-                        version.endsWith("-extra") &&
-                        !version.includes("OptiFine") &&
-                        !version.includes("LabyMod")
-                    ) {
-                        assets = JSON.parse(
-                            fs.readFileSync(
-                                `${dataDirectory}/${process.platform == "darwin"
-                                    ? this.config.dataDirectory
-                                    : `.${this.config.dataDirectory}`
-                                }/versions/${version_real}/${version_real}.json`
-                            )
-                        ).assets;
-                        
-                        versionData = {
-                            number: assets,
-                            custom: version_real,
-                            type: "release",
-                        };
-                    } else if (
-                        version.includes("OptiFine") &&
-                        version.endsWith("-extra")
-                    ) {
-                        assets = JSON.parse(
-                            fs.readFileSync(
-                                `${dataDirectory}/${process.platform == "darwin"
-                                    ? this.config.dataDirectory
-                                    : `.${this.config.dataDirectory}`
-                                }/versions/${version_real}/${version_real}.json`
-                            )
-                        ).inheritsFrom;
-                        
-                        versionData = {
-                            number: assets,
-                            custom: version_real,
-                            type: "release",
-                        };
-                    } else if (
-                        version.includes("LabyMod") &&
-                        version.endsWith("-extra")
-                    ) {
-                        assets = JSON.parse(
-                            fs.readFileSync(
-                                `${dataDirectory}/${process.platform == "darwin"
-                                    ? this.config.dataDirectory
-                                    : `.${this.config.dataDirectory}`
-                                }/versions/${version_real}/${version_real}.json`
-                            )
-                        )._minecraftVersion;
-                        
-                        versionData = {
-                            number: version_real,
-                            type: "release",
-                        };
-                    } else {
-                        versionData = version_real;
-                    }
-
-                    let playBtn = document.getElementById("download-btn");
-                    let info = progressText1;
-
-                    if (Resolution.screen.width == "<auto>") {
-                        screen = false;
-                    } else {
-                        screen = {
-                            width: Resolution.screen.width,
-                            height: Resolution.screen.height,
-                        };
-                    }
-
-
-                    let opts;
-                    if (isForgeCheckBox == true) {
-                        opts = {
-                            url: this.config.game_url === "" || this.config.game_url === undefined ?
-                                `${urlpkg}/files` :
-                                this.config.game_url,
-                            authorization: account,
-                            authenticator: account,
-                            detached: false,
-                            timeout: 10000,
-                            root: `${dataDirectory}/.battly`,
-                            path: `${dataDirectory}/.battly`,
-                            overrides: {
-                                detached: false,
-                                screen: screen,
-                            },
-                            downloadFileMultiple: 20,
-                            //javaPath: "C:\\Users\\ilyas\\Desktop\\RND Projects\\Java\\bin\\java.exe",
-                            version: versionData,
-                            loader: {
-                                type: type,
-                                build: selectForgeBuild.value,
-                                enable: isForgeCheckBox ?
-                                    true :
-                                    isFabricCheckBox ?
-                                        true :
-                                        isQuiltCheckBox ?
-                                            true :
-                                            false,
-                            },
-                            verify: false,
-                            ignored: ["loader", ...this.config.ignored],
-                            java: false,
-                            memory: {
-                                min: `${ram.ramMin * 1024}M`,
-                                max: `${ram.ramMax * 1024}M`,
-                            },
-                        };
-                    } else {
-                        opts = {
-                            url: this.config.game_url === "" || this.config.game_url === undefined ?
-                                `${urlpkg}/files` :
-                                this.config.game_url,
-                            authorization: account,
-                            authenticator: account,
-                            detached: false,
-                            timeout: 10000,
-                            root: `${dataDirectory}/.battly`,
-                            path: `${dataDirectory}/.battly`,
-                            overrides: {
-                                detached: false,
-                                screen: screen,
-                            },
-                            downloadFileMultiple: 20,
-                            //javaPath: "C:\\Users\\ilyas\\Desktop\\RND Projects\\Java\\bin\\java.exe",
-                            version: versionData,
-                            loader: {
-                                type: type,
-                                build: this.BattlyConfig.loader.build,
-                                enable: isForgeCheckBox ?
-                                    true :
-                                    isFabricCheckBox ?
-                                        true :
-                                        isQuiltCheckBox ?
-                                            true :
-                                            false,
-                            },
-                            verify: false,
-                            ignored: ["loader", ...this.config.ignored],
-                            java: false,
-                            memory: {
-                                min: `${ram.ramMin * 1024}M`,
-                                max: `${ram.ramMax * 1024}M`,
-                            },
-                        };
-                    }
-
-                    const launch = new Client();
-                    const launch_core = new Launch();
-
-                    try {
-                        /*
-                                    Si la versión acaba con -forge o -fabric, iniciar launch_core.launch(opts);
-                                    Si no, iniciar launch.launch(opts);
-                                    */
-                        if (version === "1.8") {
-                            await launch.launch(opts);
-                            document.getElementById("carga-de-versiones").style.display = "";
-                        } else if (
-                            version.endsWith("-forge") ||
-                            version.endsWith("-fabric") ||
-                            version.endsWith("-quilt")
-                        ) {
-                            await launch_core.Launch(opts);
-                            document.getElementById("carga-de-versiones").style.display = "";
-                        } else if (version.endsWith("-extra")) {
-                            launch.launch(opts);
-                            document.getElementById("carga-de-versiones").style.display = "";
-                        } else {
-                            await launch_core.Launch(opts);
-                            document.getElementById("carga-de-versiones").style.display = "";
-                        }
-                    } catch (error) {
-                        setTimeout(() => {
-                            playBtn.style.display = "";
-                            info.style.display = "none";
-                            progressBar1.style.display = "none";
-                        }, 3000);
-                        console.log(error);
-                    }
-
-                    launch.on("extract", (extract) => {
-                        consoleOutput_ += `[EXTRACT] ${extract}\n`;
-                        let seMostroInstalando = false;
-                        if (seMostroInstalando) { } else {
-                            logTextArea1.innerHTML = `${langs.extracting_loader}.`;
-                            updateTextareaScroll();
-                            seMostroInstalando = true;
-                        }
-                    });
-
-                    launch.on("debug", (e) => {
-                        consoleOutput_ += `[ERROR] ${JSON.stringify(e, null, 2)}\n`;
-                        if (e.includes("Failed to start due to TypeError")) {
-                            Toast.fire({
-                                icon: "error",
-                                title: "Error al iniciar Minecraft",
-                            });
-                            progressBar1.style.display = "none";
-                            progressBar1.max = 100;
-                            progressBar1.value = 0;
-                            playBtn.style.display = "";
-                            info.style.display = "none";
-                            crasheo = true;
-                        }
-
-                        if (e.includes("Downloaded and extracted natives")) {
-
-                            progressBar1.style.display = "";
-                            progressBar1.max = 100;
-                            progressBar1.value = 0;
-
-                            info.innerHTML = langs.downloading_files;
-                        }
-
-                        if (e.includes("Attempting to download Minecraft version jar")) {
-                            info.innerHTML = langs.downloading_version;
-                        }
-
-                        if (e.includes("Attempting to download assets")) {
-                            info.innerHTML = langs.downloading_assets;
-                        }
-
-                        if (e.includes("Downloaded Minecraft version jar")) {
-                            info.innerHTML = langs.downloading_libraries;
-                        }
-
-                        if (e.includes("Downloaded and extracted natives")) {
-                            info.innerHTML = langs.downloading_natives;
-                        }
-
-                        if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                        if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                        if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                        if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                        if (e.includes("Forge patcher exited with code 1")) {
-                            ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                            progressBar1.style.display = "none";
-                            info.style.display = "none";
-                            playBtn.style.display = "";
-                        }
-
-                        if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                        if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-                    });
-
-                    launch.on("progress", function (e) {
-
-                        let total = e.total;
-                        let current = e.task;
-
-                        let progress = ((current / total) * 100).toFixed(0);
-                        let total_ = 100;
-
-                        ipcRenderer.send("main-window-progress_", {
-                            total_,
-                            progress,
-                        });
-
-                        progressBar1.style.display = "";
-                        progressBar1.max = total;
-                        progressBar1.value = current;
-                    });
-
-                    let crasheo = false;
-
-                    launch.on("estimated", (time) => {
-                        ipcRenderer.send("main-window-progress-reset");
-                        /*
-                                    let hours = Math.floor(time / 3600);
-                                    let minutes = Math.floor((time - hours * 3600) / 60);
-                                    let seconds = Math.floor(time - hours * 3600 - minutes * 60);
-                                    console.log(`${hours}h ${minutes}m ${seconds}s`);*/
-                    });
-
-                    let timeoutId;
-
-                    launch.on("speed", (speed) => {
-                        /*
-                                                    let velocidad = speed / 1067008;
-
-                                                    if (velocidad > 0) {
-                                                        clearTimeout(timeoutId); // cancela el mensaje de alerta si la velocidad no es cero
-                                                    } else {
-                                                        timeoutId = setTimeout(() => {
-                                                            progressBar1.style.display = "none"
-                                                            progressBar1.max = 100;
-                                                            progressBar1.value = 0;
-                                                            playBtn.style.display = ""
-                                                            info.style.display = "none"
-                                                            clearTimeout(timeoutId);
-                                                            const swal  = require('sweetalert');
-                                                            crasheo = true;
-
-                                                            Toast.fire({
-                                                                title: "Error",
-                                                                text: "Error al descargar esta versión. Reinicia el launcher o inténtalo de nuevo más tarde. [ERROR: 2]",
-                                                                icon: "error",
-                                                                button: "Aceptar",
-                                                            }).then((value) => {
-                                                                if(value) {
-                                                                    ipcRenderer.send('restartLauncher')
-                                                                }
-                                                            });
-                                                            
-                                                        }, 10000);
-                                                    }*/
-                    });
-
-                    launch.on("patch", (patch) => {
-                        consoleOutput_ += `[INSTALANDO LOADER] ${patch}\n`;
-                        let seMostroInstalando = false;
-                        if (seMostroInstalando) { } else {
-                            logTextArea1.innerHTML = `${langs.installing_loader}...\n`;
-                            seMostroInstalando = true;
-                        }
-
-                        info.innerHTML = `${langs.installing_loader}...`;
-                    });
-
-                    let inicio = false;
-                    let iniciando = false;
-                    launch.on("data", async (e) => {
-                        new logger("Minecraft", "#36b030");
-                        consoleOutput_ += `[MC] ${e}\n`;
-                        if (launcherSettings.launcher.close === "close-launcher")
-                            ipcRenderer.send("main-window-hide");
-
-                        if (e.includes("Launching with arguments"))
-                            info.innerHTML = `${langs.starting_minecraft}...`;;
-
-                        if (iniciando == false) {
-                            
-                            Toast.fire({
-                                icon: "info",
-                                title: `${langs.starting_minecraft}...`,
-                            });
-                            iniciando = true;
-                        }
-
-                        let serversDat = `${dataDirectory}/.battly/servers.dat`;
-
-                        if (fs.existsSync(serversDat)) {
-                            try {
-                                const serversDatFile = fs.readFileSync(serversDat);
-                                const serversDatData = await NBT.read(serversDatFile);
-                                
-
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-
-                                    // Verificar si la IP ya existe en el archivo servers.dat
-                                    const ipExists = serversDatData.data.servers.some(server => server.ip === newServer.ip);
-
-                                    if (!ipExists) {
-                                        serversArray.push(newServer);
-                                    }
-                                }
-
-                                
-
-                                // Añadir los nuevos servidores al array existente en serversDatData.data.servers
-                                serversDatData.data.servers = serversArray.concat(serversDatData.data.servers);
-                                const editedServersDat = await NBT.write(serversDatData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al procesar el archivo NBT:", error);
-                            }
-                        } else {
-                            try {
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-                                    serversArray.push(newServer);
-                                }
-
-                                
-
-                                // Crear un nuevo archivo servers.dat con los servidores nuevos
-                                const newData = { servers: serversArray };
-                                const editedServersDat = await NBT.write(newData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al crear el nuevo archivo NBT:", error);
-                            }
-                        }
-
-                        if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                        if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                        if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                        if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                        if (e.includes("Forge patcher exited with code 1")) {
-                            ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                            progressBar1.style.display = "none";
-                            info.style.display = "none";
-                            playBtn.style.display = "";
-                        }
-
-                        if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                        if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (
-                            e.includes(`Setting user: ${account.name}`) ||
-                            e.includes("Launching wrapped minecraft")
-                        ) {
-                            if (inicio == false) {
-                                let typeOfVersion;
-                                if (version.endsWith("-forge")) {
-                                    typeOfVersion = "Forge";
-                                } else if (version_real.endsWith("-fabric")) {
-                                    typeOfVersion = "Fabric";
-                                } else if (version_real.endsWith("-quilt")) {
-                                    typeOfVersion = "Quilt";
-                                } else {
-                                    typeOfVersion = "";
-                                }
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} ${version
-                                        .replace("-forge", "")
-                                        .replace("-fabric", "")
-                                        .replace("-quilt", "")} ${typeOfVersion}`
-                                );
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} ${version_real.replace("-forge", "").replace("-fabric", "").replace("-quilt", "")} ${typeOfVersion}`);
-
-                                modalDiv1.remove();
-                                inicio = true;
-                                info.innerHTML = `${langs.minecraft_started_correctly}.`;
-                                ipcRenderer.send("new-notification", {
-                                    title: langs.minecraft_started_correctly,
-                                    body: langs.minecraft_started_correctly_body,
-                                });
-
-                                ipcRenderer.send("main-window-progress-reset");
-                            }
-                        }
-
-                        if (e.includes("Connecting to")) {
-                            let msj = e.split("Connecting to ")[1].split("...")[0];
-                            info.innerHTML = `Conectando a ${msj}`;
-                        }
-                    });
-
-                    launch.on("close", (code) => {
-                        consoleOutput_ += `---------- [MC] Código de salida: ${code}\n ----------`;
-                        if (launcherSettings.launcher.close === "close-launcher")
-                            ipcRenderer.send("main-window-show");
-
-                        ipcRenderer.send('updateStatus', {
-                            status: 'online',
-                            details: langs.in_the_menu,
-                            username: account.name,
-                        })
-                        info.style.display = "none";
-                        playBtn.style.display = "";
-                        info.innerHTML = `Verificando archivos...`;
-                        new logger("Launcher", "#3e8ed0");
-                        progressBar1.style.display = "none";
-                        console.log("🔧 Minecraft cerrado");
-
-                        ipcRenderer.send("delete-and-new-status-discord");
-
-                        version = null;
-                        versionType = null;
-                        versionData = null;
-                        version_real = null;
-                        assets = null;
-                        type = null;
-                        isForgeCheckBox = false;
-                        isFabricCheckBox = false;
-                        isQuiltCheckBox = false;
-                        document.getElementById("radioVanilla").removeAttribute("checked");
-                        document.getElementById("radioForge").removeAttribute("checked");
-                        document.getElementById("radioFabric").removeAttribute("checked");
-                        document.getElementById("radioQuilt").removeAttribute("checked");
-
-
-
-                    });
-
-                    let seMostroExtrayendo_core = false;
-                    let seMostroInstalando_core = false;
-
-                    launch_core.on("extract", (extract) => {
-                        consoleOutput_ += `[EXTRACT] ${extract}\n`;
-                        if (seMostroExtrayendo_core) { } else {
-                            logTextArea1.innerHTML = `${langs.extracting_loader}.`;
-                            updateTextareaScroll();
-                            seMostroExtrayendo_core = true;
-                        }
-                    });
-
-                    launch_core.on("debug", (e) => {
-                        consoleOutput_ += `[MC] ${JSON.stringify(e, null, 2)}\n`;
-                        if (e.includes("Failed to start due to TypeError")) {
-                            progressBar1.style.display = "none";
-                            progressBar1.max = 100;
-                            progressBar1.value = 0;
-                            playBtn.style.display = "";
-                            info.style.display = "none";
-                            crasheo = true;
-                        }
-
-                        if (e.includes("Downloaded and extracted natives")) {
-                            progressBar1.style.display = "";
-                            progressBar1.max = 100;
-                            progressBar1.value = 0;
-
-                            info.innerHTML = langs.downloading_files;
-                        }
-
-                        if (e.includes("Attempting to download Minecraft version jar")) {
-                            info.innerHTML = langs.downloading_version;
-                        }
-
-                        if (e.includes("Attempting to download assets")) {
-                            info.innerHTML = langs.downloading_assets;
-                        }
-
-                        if (e.includes("Downloaded Minecraft version jar")) {
-                            info.innerHTML = langs.downloading_libraries;
-                        }
-
-                        if (e.includes("Downloaded and extracted natives")) {
-                            info.innerHTML = langs.downloading_natives;
-                        }
-
-                        if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                        if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                        if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                        if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                        if (e.includes("Forge patcher exited with code 1")) {
-                            ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                            progressBar1.style.display = "none";
-                            info.style.display = "none";
-                            playBtn.style.display = "";
-                        }
-
-                        if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                        if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-                    });
-                    launch_core.on("data", async (e) => {
-                        new logger("Minecraft", "#36b030");
-                        consoleOutput_ += `[MC] ${e}\n`;
-                        if (launcherSettings.launcher.close === "close-launcher")
-                            ipcRenderer.send("main-window-hide");
-                        progressBar1.style.display = "none";
-
-                        if (e.includes("Launching with arguments"))
-                            info.innerHTML = `${langs.starting_minecraft}...`;;
-
-                        if (iniciando == false) {
-                            
-                            iniciando = true;
-
-                            let serversDat = `${dataDirectory}/.battly/servers.dat`;
-
-                        if (fs.existsSync(serversDat)) {
-                            try {
-                                const serversDatFile = fs.readFileSync(serversDat);
-                                const serversDatData = await NBT.read(serversDatFile);
-                                
-
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-
-                                    // Verificar si la IP ya existe en el archivo servers.dat
-                                    const ipExists = serversDatData.data.servers.some(server => server.ip === newServer.ip);
-
-                                    if (!ipExists) {
-                                        serversArray.push(newServer);
-                                    }
-                                }
-
-                                
-
-                                // Añadir los nuevos servidores al array existente en serversDatData.data.servers
-                                serversDatData.data.servers = serversArray.concat(serversDatData.data.servers);
-                                const editedServersDat = await NBT.write(serversDatData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al procesar el archivo NBT:", error);
-                            }
-                        } else {
-                            try {
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-                                    serversArray.push(newServer);
-                                }
-
-                                
-
-                                // Crear un nuevo archivo servers.dat con los servidores nuevos
-                                const newData = { servers: serversArray };
-                                const editedServersDat = await NBT.write(newData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al crear el nuevo archivo NBT:", error);
-                            }
-                        }
-
-                            let versiones = this.Versions;
-
-                            const skinsJarPath = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/skins.jar`;
-                            const skinsForgeJarPath = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/skins-forge.jar`;
-                            const skinsForgeNewJarPath = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/skins-forge-new.jar`;
-
-                            let rutaPrincipalSkinsJar = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/skins.jar`;
-                            let rutaPrincipalSkinsForgeJar = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/skins-forge.jar`;
-                            let rutaPrincipalSkinsForgeNewJar = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/skins-forge-new.jar`;
-
-                            let rutaModMultijugadorForge = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/multijugador-forge.jar`;
-                            let rutaModMultijugadorFabric = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/multijugador-fabric.jar`;
-
-                            let rutaModMultijugadorForgeDeMods = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/multijugador-forge.jar`;
-                            let rutaModMultijugadorFabricDeMods = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/multijugador-fabric.jar`;
-
-                            if (fs.existsSync(rutaModMultijugadorFabricDeMods)) {
-                                fs.unlinkSync(rutaModMultijugadorFabricDeMods);
-                            }
-
-                            if (fs.existsSync(rutaModMultijugadorForgeDeMods)) {
-                                fs.unlinkSync(rutaModMultijugadorForgeDeMods);
-                            }
-
-                            fs.unlinkSync(skinsJarPath);
-                            fs.unlinkSync(skinsForgeJarPath);
-                            fs.unlinkSync(skinsForgeNewJarPath);
-
-                            const selectedVersion = version;
-
-                            let selectedVersionWithoutHyphen;
-                            if (selectedVersion.includes("-")) {
-                                selectedVersionWithoutHyphen = selectedVersion.replace(/-[^.]+/, "");
-                                
-                            }
-
-                            const versionInfo = versiones.versions.find(
-                                (v) => v.id === selectedVersionWithoutHyphen
-                            );
-
-                            
-
-                            if (versionInfo) {
-                                function formatVersionNumber(version) {
-                                    const parsedVersion = parseFloat(version);
-                                    if (!isNaN(parsedVersion)) {
-                                        const formattedVersion = parsedVersion.toString();
-                                        return formattedVersion;
-                                    }
-                                    return version; // Si no se puede analizar como número, devuelve la versión original
-                                }
-
-                                // Ejemplo de uso:
-                                const versionNumber = formatVersionNumber(versionInfo.version);
-
-                                let versionesCompatiblesConForgeNormal = [
-                                    "1.16.5",
-                                    "1.16.4",
-                                    "1.16.3",
-                                    "1.16.2",
-                                    "1.16.1",
-                                    "1.16",
-                                    "1.15.2",
-                                    "1.15.1",
-                                    "1.15",
-                                    "1.14.4",
-                                    "1.14.3",
-                                    "1.14.2",
-                                    "1.14.1",
-                                    "1.14",
-                                    "1.13.2",
-                                    "1.13.1",
-                                    "1.13",
-                                    "1.12.2",
-                                    "1.12.1",
-                                    "1.12",
-                                    "1.11.2",
-                                    "1.11.1",
-                                    "1.11",
-                                    "1.10.2",
-                                    "1.10.1",
-                                    "1.10",
-                                    "1.9.4",
-                                    "1.9.3",
-                                    "1.9.2",
-                                    "1.9.1",
-                                    "1.9",
-                                    "1.8.9",
-                                    "1.8.8",
-                                    "1.8.7",
-                                    "1.8.6",
-                                    "1.8.5",
-                                    "1.8.4",
-                                    "1.8.3",
-                                    "1.8.2",
-                                    "1.8.1",
-                                    "1.8",
-                                ];
-
-                                
-
-                                const excludedVersions = [
-                                    1.16, 1.15, 1.14, 1.13, 1.12, 1.11, 1.1, 1.9, 1.8, 1.7, 1.6,
-                                    1.5, 1.4, 1.3,
-                                ];
-                                const includedVersionsForgeNew = [1.17, 1.18, 1.19, 1.2, 1.21];
-                                const versionesConMultijugadorDesactivado = [
-                                    "1.16.4",
-                                    "1.16.5",
-                                ];
-
-                                
-
-                                if (
-                                    versionesConMultijugadorDesactivado.includes(version) &&
-                                    versionType === "forge"
-                                ) {
-                                    fs.copyFileSync(
-                                        rutaModMultijugadorForge,
-                                        `${dataDirectory}/${process.platform == "darwin"
-                                            ? this.config.dataDirectory
-                                            : `.${this.config.dataDirectory}`
-                                        }/mods/multijugador-forge.jar`
-                                    );
-                                } else if (
-                                    versionesConMultijugadorDesactivado.includes(version) &&
-                                    versionType === "fabric"
-                                ) {
-                                    fs.copyFileSync(
-                                        rutaModMultijugadorFabric,
-                                        `${dataDirectory}/${process.platform == "darwin"
-                                            ? this.config.dataDirectory
-                                            : `.${this.config.dataDirectory}`
-                                        }/mods/multijugador-fabric.jar`
-                                    );
-                                }
-
-                                if (
-                                    includedVersionsForgeNew.includes(
-                                        parseFloat(version_real)
-                                    ) &&
-                                    !excludedVersions.includes(parseFloat(version_real)) &&
-                                    versionType == "forge"
-                                ) {
-                                    
-
-                                    fs.copyFileSync(
-                                        rutaPrincipalSkinsForgeNewJar,
-                                        skinsForgeNewJarPath
-                                    );
-
-                                    // Eliminar skins.jar y skins-forge.jar
-                                    if (fs.existsSync(skinsJarPath)) {
-                                        fs.unlinkSync(skinsJarPath);
-                                    }
-                                    if (fs.existsSync(skinsForgeJarPath)) {
-                                        fs.unlinkSync(skinsForgeJarPath);
-                                    }
-                                } else if (
-                                    versionesCompatiblesConForgeNormal.includes(version_real) &&
-                                    versionType == "forge"
-                                ) {
-                                    
-
-                                    fs.copyFileSync(
-                                        rutaPrincipalSkinsForgeJar,
-                                        skinsForgeJarPath
-                                    );
-
-                                    // Eliminar skins.jar y skins-forge-new.jar
-                                    if (fs.existsSync(skinsJarPath)) {
-                                        fs.unlinkSync(skinsJarPath);
-                                    }
-                                    if (fs.existsSync(skinsForgeNewJarPath)) {
-                                        fs.unlinkSync(skinsForgeNewJarPath);
-                                    }
-                                } else if (versionType == "fabric" || versionType == "quilt") {
-                                    
-
-                                    fs.copyFileSync(rutaPrincipalSkinsJar, skinsJarPath);
-                                    // Eliminar skins-forge.jar y skins-forge-new.jar
-                                    if (fs.existsSync(skinsForgeJarPath)) {
-                                        fs.unlinkSync(skinsForgeJarPath);
-                                    }
-                                    if (fs.existsSync(skinsForgeNewJarPath)) {
-                                        fs.unlinkSync(skinsForgeNewJarPath);
-                                    }
-                                }
-                            }
-
-                            let archivoConfigSkins = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/CustomSkinLoader/CustomSkinLoader.json`;
-                            let data = {
-                                version: "14.15",
-                                buildNumber: 8,
-                                loadlist: [{
-                                    name: "BattlyAPI",
-                                    type: "Legacy",
-                                    checkPNG: false,
-                                    skin: "http://api.battlylauncher.com/api/skin/{USERNAME}.png",
-                                    model: "auto",
-                                    cape: "http://api.battlylauncher.com/api/capa/{USERNAME}.png",
-                                },
-                                {
-                                    name: "Mojang",
-                                    type: "MojangAPI",
-                                    apiRoot: "https://api.mojang.com/",
-                                    sessionRoot: "https://sessionserver.mojang.com/",
-                                },
-                                {
-                                    name: "OptiFine",
-                                    type: "Legacy",
-                                    checkPNG: false,
-                                    model: "auto",
-                                    cape: "https://optifine.net/capes/{USERNAME}.png",
-                                },
-                                {
-                                    name: "LabyMod",
-                                    type: "Legacy",
-                                    checkPNG: false,
-                                    model: "auto",
-                                    cape: "https://dl.labymod.net/capes/{STANDARD_UUID}",
-                                },
-                                ],
-                                enableDynamicSkull: true,
-                                enableTransparentSkin: true,
-                                forceIgnoreHttpsCertificate: true,
-                                forceLoadAllTextures: true,
-                                enableCape: true,
-                                threadPoolSize: 8,
-                                enableLogStdOut: false,
-                                cacheExpiry: 30,
-                                forceUpdateSkull: true,
-                                enableLocalProfileCache: false,
-                                enableCacheAutoClean: true,
-                                forceDisableCache: true,
-                            };
-
-                            if (fs.existsSync(path.join(archivoConfigSkins))) {
-                                fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                            } else {
-                                fs.mkdirSync(
-                                    `${dataDirectory}/.battly/CustomSkinLoader`
-                                );
-                                fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                            }
-                        }
-
-                        if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                        if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                        if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                        if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                        if (e.includes("Forge patcher exited with code 1")) {
-                            ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                            progressBar1.style.display = "none";
-                            info.style.display = "none";
-                            playBtn.style.display = "";
-                        }
-
-                        if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                        if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (
-                            e.includes(`Setting user: ${account.name}`) ||
-                            e.includes("Launching wrapped minecraft")
-                        ) {
-                            if (inicio == false) {
-                                let typeOfVersion;
-                                if (version_real.endsWith("-forge")) {
-                                    typeOfVersion = "Forge";
-                                } else if (version_real.endsWith("-fabric")) {
-                                    typeOfVersion = "Fabric";
-                                } else if (version_real.endsWith("-quilt")) {
-                                    typeOfVersion = "Quilt";
-                                } else {
-                                    typeOfVersion = "";
-                                }
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} ${version_real
-                                        .replace("-forge", "")
-                                        .replace("-fabric", "")
-                                        .replace("-quilt", "")} ${typeOfVersion}`
-                                );
-
-                                
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} ${version_real.replace("-forge", "").replace("-fabric", "").replace("-quilt", "")} ${typeOfVersion}`);
-
-                                modalDiv1.remove();
-                                inicio = true;
-                                info.innerHTML = `${langs.minecraft_started_correctly}.`;
-                                ipcRenderer.send("new-notification", {
-                                    title: langs.minecraft_started_correctly,
-                                    body: langs.minecraft_started_correctly_body,
-                                });
-
-                                ipcRenderer.send("main-window-progress-reset");
-                            }
-                        }
-                    });
-
-                  
-                    let lastProgreso = -1;
-                  
-                    launch_core.on("progress", (progress, size) => {
-                        let progreso = ((progress / size) * 100).toFixed(0);
-                        if (progreso > 100) {
-                            progreso = 100;
-                        }
-
-                        if (progreso != lastProgreso) {
-                            logTextArea1.innerHTML += `\n${langs.downloading_version}... ${progreso}%`;
-                            lastProgreso = progreso;
-                        } else {
-                        }
-
-                        consoleOutput_ += `[DESCARGANDO] ${progress} / ${size}\n`;
-                        updateTextareaScroll();
-                        ipcRenderer.send("main-window-progress", {
-                            progress,
-                            size
-                        });
-                        if (!isNaN(progress)) {
-                            // Solo asignar progressBar1.value si progress es un número
-                            progressBar1.value = progress;
-                        }
-
-                        if (!isNaN(size)) {
-                            // Solo asignar progressBar1.max si size es un número
-                            progressBar1.max = size;
-                        }
-
-                    });
-                    launch_core.on("check", (progress, size) => {
-
-                        let progreso = ((progress / size) * 100).toFixed(0);
-                        if (progreso > 100) {
-                            progreso = 100;
-                        }
-
-                        if (progreso != lastProgreso) {
-                            logTextArea1.innerHTML += `\n${langs.downloading}... ${progreso}%`;
-                            lastProgreso = progreso;
-                            updateTextareaScroll();
-    
-                        } else {
-                        }
-
-                        consoleOutput_ += `[INSTALANDO MC] ${progress} / ${size}\n`;
-                        let seMostroInstalando = false;
-                        if (seMostroInstalando) { } else {
-                            seMostroInstalando = true;
-                        }
-                        progressBar1.style.display = "";
-                        let size_actual = 100;
-                        let progress_actual = ((progress / size) * 100).toFixed(0);
-                        ipcRenderer.send("main-window-progress", {
-                            progress_actual,
-                            size_actual,
-                        });
-                        progressBar1.value = progress;
-                        progressBar1.max = size;
-                    });
-
-                    let estimatedTime = `- ${langs.calculating_time}...`;
-
-                    launch_core.on("estimated", (time) => {
-                        ipcRenderer.send("main-window-progress-reset");
-
-                        if (isNaN(time) || !isFinite(time)) {
-                            estimatedTime = `- ${langs.estimated_time_not_available}`;
-                        } else {
-                            let hours = Math.floor(time / 3600);
-                            let minutes = Math.floor((time - hours * 3600) / 60);
-                            let seconds = Math.floor(time - hours * 3600 - minutes * 60);
-
-                            if (hours > 0) {
-                                estimatedTime = hours > 1 ? `- ${langs.remaining} ${hours}h` : `- ${langs.remaining_two} ${hours}h`;
-                            } else if (minutes > 0) {
-                                estimatedTime = minutes > 1 ? `- ${langs.remaining} ${minutes}m` : `- ${langs.remaining_two} ${minutes}m`;
-                            } else {
-                                estimatedTime = seconds > 1 ? `- ${langs.remaining} ${seconds}s` : `- ${langs.remaining_two} ${seconds}s`;
-                            }
-                        }
-
-                    });
-
-
-                    launch_core.on("speed", (speed) => {
-                        
-                        let velocidad = speed / 1067008;
-                        
-                        
-                        info.innerHTML = `${langs.downloading}... (${(velocidad).toFixed(2)} MB/s) - ${estimatedTime}`;
-                        /*
-                        
-                                                    if (velocidad > 0) {
-                                                        clearTimeout(timeoutId); // cancela el mensaje de alerta si la velocidad no es cero
-                                                    } else {
-                                                        timeoutId = setTimeout(() => {
-                                                            progressBar1.style.display = "none"
-                                                            progressBar1.max = 100;
-                                                            progressBar1.value = 0;
-                                                            playBtn.style.display = ""
-                                                            info.style.display = "none"
-                                                            clearTimeout(timeoutId);
-                                                            const swal  = require('sweetalert');
-                                                            crasheo = true;
-                        
-                                                            Toast.fire({
-                                                                title: "Error",
-                                                                text: "Error al descargar esta versión. Reinicia el launcher o inténtalo de nuevo más tarde. [ERROR: 2]",
-                                                                icon: "error",
-                                                                button: "Aceptar",
-                                                            }).then((value) => {
-                                                                if(value) {
-                                                                    ipcRenderer.send('restartLauncher')
-                                                                }
-                                                            });
-                                                            
-                                                        }, 10000);
-                                                    }*/
-                    });
-
-                    launch_core.on("patch", (patch) => {
-                        
-                        logTextArea1.innerHTML += `\n${langs.extracting_loader}... [${patch}]`;
-                        updateTextareaScroll();
-                        consoleOutput_ += `[INSTAL. LOADER] ${patch}\n`;
-                    });
-
-                    launch_core.on("data", async (e) => {
-                        new logger("Minecraft", "#36b030");
-                        consoleOutput_ += `[MC] ${e}\n`;
-                        if (launcherSettings.launcher.close === "close-launcher")
-                            ipcRenderer.send("main-window-hide");
-                        progressBar1.style.display = "none";
-
-                        if (e.includes("Launching with arguments"))
-                            info.innerHTML = `${langs.starting_minecraft}...`;;
-
-                        if (iniciando == false) {
-                            
-                            Toast.fire({
-                                icon: "info",
-                                title: `${langs.starting_minecraft}...`,
-                            });
-                            iniciando = true;
-
-                            let serversDat = `${dataDirectory}/.battly/servers.dat`;
-
-                        if (fs.existsSync(serversDat)) {
-                            try {
-                                const serversDatFile = fs.readFileSync(serversDat);
-                                const serversDatData = await NBT.read(serversDatFile);
-                                
-
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-
-                                    // Verificar si la IP ya existe en el archivo servers.dat
-                                    const ipExists = serversDatData.data.servers.some(server => server.ip === newServer.ip);
-
-                                    if (!ipExists) {
-                                        serversArray.push(newServer);
-                                    }
-                                }
-
-                                
-
-                                // Añadir los nuevos servidores al array existente en serversDatData.data.servers
-                                serversDatData.data.servers = serversArray.concat(serversDatData.data.servers);
-                                const editedServersDat = await NBT.write(serversDatData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al procesar el archivo NBT:", error);
-                            }
-                        } else {
-                            try {
-                                let servers = this.BattlyConfig.promoted_servers;
-                                
-
-                                let serversArray = [];
-
-                                for (let i = 0; i < servers.length; i++) {
-                                    const newServer = {
-                                        name: servers[i].name,
-                                        ip: servers[i].ip,
-                                        icon: servers[i].icon,
-                                    };
-                                    serversArray.push(newServer);
-                                }
-
-                                
-
-                                // Crear un nuevo archivo servers.dat con los servidores nuevos
-                                const newData = { servers: serversArray };
-                                const editedServersDat = await NBT.write(newData);
-                                fs.writeFileSync(serversDat, editedServersDat);
-                            } catch (error) {
-                                console.error("Error al crear el nuevo archivo NBT:", error);
-                            }
-                        }
-
-                            let versiones = this.Versions;
-
-                            const skinsJarPath = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/skins.jar`;
-                            const skinsForgeJarPath = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/skins-forge.jar`;
-                            const skinsForgeNewJarPath = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/skins-forge-new.jar`;
-
-                            let rutaPrincipalSkinsJar = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/skins.jar`;
-                            let rutaPrincipalSkinsForgeJar = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/skins-forge.jar`;
-                            let rutaPrincipalSkinsForgeNewJar = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/skins-forge-new.jar`;
-
-                            let rutaModMultijugadorForge = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/multijugador-forge.jar`;
-                            let rutaModMultijugadorFabric = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/battly/mods-internos/multijugador-fabric.jar`;
-
-                            let rutaModMultijugadorForgeDeMods = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/multijugador-forge.jar`;
-                            let rutaModMultijugadorFabricDeMods = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/mods/multijugador-fabric.jar`;
-
-                            if (fs.existsSync(rutaModMultijugadorFabricDeMods)) {
-                                fs.unlinkSync(rutaModMultijugadorFabricDeMods);
-                            }
-
-                            if (fs.existsSync(rutaModMultijugadorForgeDeMods)) {
-                                fs.unlinkSync(rutaModMultijugadorForgeDeMods);
-                            }
-
-                            fs.unlinkSync(skinsJarPath);
-                            fs.unlinkSync(skinsForgeJarPath);
-                            fs.unlinkSync(skinsForgeNewJarPath);
-
-                            const selectedVersion = version;
-
-                            let selectedVersionWithoutHyphen;
-                            if (selectedVersion.includes("-")) {
-                                selectedVersionWithoutHyphen = selectedVersion.replace(/-[^.]+/, "");
-                                
-                            }
-
-                            const versionInfo = versiones.versions.find(
-                                (v) => v.id === selectedVersionWithoutHyphen
-                            );
-
-                            if (versionInfo) {
-                                function formatVersionNumber(version) {
-                                    const parsedVersion = parseFloat(version);
-                                    if (!isNaN(parsedVersion)) {
-                                        const formattedVersion = parsedVersion.toString();
-                                        return formattedVersion;
-                                    }
-                                    return version; // Si no se puede analizar como número, devuelve la versión original
-                                }
-
-                                // Ejemplo de uso:
-                                const versionNumber = formatVersionNumber(versionInfo.version);
-
-                                
-
-                                let versionesCompatiblesConForgeNormal = [
-                                    "1.16.5",
-                                    "1.16.4",
-                                    "1.16.3",
-                                    "1.16.2",
-                                    "1.16.1",
-                                    "1.16",
-                                    "1.15.2",
-                                    "1.15.1",
-                                    "1.15",
-                                    "1.14.4",
-                                    "1.14.3",
-                                    "1.14.2",
-                                    "1.14.1",
-                                    "1.14",
-                                    "1.13.2",
-                                    "1.13.1",
-                                    "1.13",
-                                    "1.12.2",
-                                    "1.12.1",
-                                    "1.12",
-                                    "1.11.2",
-                                    "1.11.1",
-                                    "1.11",
-                                    "1.10.2",
-                                    "1.10.1",
-                                    "1.10",
-                                    "1.9.4",
-                                    "1.9.3",
-                                    "1.9.2",
-                                    "1.9.1",
-                                    "1.9",
-                                    "1.8.9",
-                                    "1.8.8",
-                                    "1.8.7",
-                                    "1.8.6",
-                                    "1.8.5",
-                                    "1.8.4",
-                                    "1.8.3",
-                                    "1.8.2",
-                                    "1.8.1",
-                                    "1.8",
-                                ];
-
-                                
-
-                                const excludedVersions = [
-                                    1.16, 1.15, 1.14, 1.13, 1.12, 1.11, 1.1, 1.9, 1.8, 1.7, 1.6,
-                                    1.5, 1.4, 1.3,
-                                ];
-                                const includedVersionsForgeNew = [1.17, 1.18, 1.19, 1.2, 1.21];
-                                const versionesConMultijugadorDesactivado = [
-                                    "1.16.4",
-                                    "1.16.5",
-                                ];
-
-                                
-
-                                if (
-                                    versionesConMultijugadorDesactivado.includes(version) &&
-                                    versionType === "forge"
-                                ) {
-                                    fs.copyFileSync(
-                                        rutaModMultijugadorForge,
-                                        `${dataDirectory}/${process.platform == "darwin"
-                                            ? this.config.dataDirectory
-                                            : `.${this.config.dataDirectory}`
-                                        }/mods/multijugador-forge.jar`
-                                    );
-                                } else if (
-                                    versionesConMultijugadorDesactivado.includes(version) &&
-                                    versionType === "fabric"
-                                ) {
-                                    fs.copyFileSync(
-                                        rutaModMultijugadorFabric,
-                                        `${dataDirectory}/${process.platform == "darwin"
-                                            ? this.config.dataDirectory
-                                            : `.${this.config.dataDirectory}`
-                                        }/mods/multijugador-fabric.jar`
-                                    );
-                                }
-
-                                if (
-                                    includedVersionsForgeNew.includes(
-                                        parseFloat(version_real)
-                                    ) &&
-                                    !excludedVersions.includes(parseFloat(version_real)) &&
-                                    versionType == "forge"
-                                ) {
-                                    
-
-                                    fs.copyFileSync(
-                                        rutaPrincipalSkinsForgeNewJar,
-                                        skinsForgeNewJarPath
-                                    );
-
-                                    // Eliminar skins.jar y skins-forge.jar
-                                    if (fs.existsSync(skinsJarPath)) {
-                                        fs.unlinkSync(skinsJarPath);
-                                    }
-                                    if (fs.existsSync(skinsForgeJarPath)) {
-                                        fs.unlinkSync(skinsForgeJarPath);
-                                    }
-                                } else if (
-                                    versionesCompatiblesConForgeNormal.includes(version_real) &&
-                                    versionType == "forge"
-                                ) {
-                                    
-
-                                    fs.copyFileSync(
-                                        rutaPrincipalSkinsForgeJar,
-                                        skinsForgeJarPath
-                                    );
-
-                                    // Eliminar skins.jar y skins-forge-new.jar
-                                    if (fs.existsSync(skinsJarPath)) {
-                                        fs.unlinkSync(skinsJarPath);
-                                    }
-                                    if (fs.existsSync(skinsForgeNewJarPath)) {
-                                        fs.unlinkSync(skinsForgeNewJarPath);
-                                    }
-                                } else if (versionType == "fabric" || versionType == "quilt") {
-                                    
-
-                                    fs.copyFileSync(rutaPrincipalSkinsJar, skinsJarPath);
-                                    // Eliminar skins-forge.jar y skins-forge-new.jar
-                                    if (fs.existsSync(skinsForgeJarPath)) {
-                                        fs.unlinkSync(skinsForgeJarPath);
-                                    }
-                                    if (fs.existsSync(skinsForgeNewJarPath)) {
-                                        fs.unlinkSync(skinsForgeNewJarPath);
-                                    }
-                                }
-                            }
-
-                            let archivoConfigSkins = `${dataDirectory}/${process.platform == "darwin"
-                                ? this.config.dataDirectory
-                                : `.${this.config.dataDirectory}`
-                                }/CustomSkinLoader/CustomSkinLoader.json`;
-                            let data = {
-                                version: "14.15",
-                                buildNumber: 8,
-                                loadlist: [{
-                                    name: "BattlyAPI",
-                                    type: "Legacy",
-                                    checkPNG: false,
-                                    skin: "http://api.battlylauncher.com/api/skin/{USERNAME}.png",
-                                    model: "auto",
-                                    cape: "http://api.battlylauncher.com/api/capa/{USERNAME}.png",
-                                },
-                                {
-                                    name: "Mojang",
-                                    type: "MojangAPI",
-                                    apiRoot: "https://api.mojang.com/",
-                                    sessionRoot: "https://sessionserver.mojang.com/",
-                                },
-                                {
-                                    name: "OptiFine",
-                                    type: "Legacy",
-                                    checkPNG: false,
-                                    model: "auto",
-                                    cape: "https://optifine.net/capes/{USERNAME}.png",
-                                },
-                                {
-                                    name: "LabyMod",
-                                    type: "Legacy",
-                                    checkPNG: false,
-                                    model: "auto",
-                                    cape: "https://dl.labymod.net/capes/{STANDARD_UUID}",
-                                },
-                                ],
-                                enableDynamicSkull: true,
-                                enableTransparentSkin: true,
-                                forceIgnoreHttpsCertificate: true,
-                                forceLoadAllTextures: true,
-                                enableCape: true,
-                                threadPoolSize: 8,
-                                enableLogStdOut: false,
-                                cacheExpiry: 30,
-                                forceUpdateSkull: true,
-                                enableLocalProfileCache: false,
-                                enableCacheAutoClean: true,
-                                forceDisableCache: true,
-                            };
-
-                            if (fs.existsSync(path.join(archivoConfigSkins))) {
-                                fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                            } else {
-                                fs.mkdirSync(
-                                    `${dataDirectory}/.battly/CustomSkinLoader`
-                                );
-                                fs.writeFileSync(archivoConfigSkins, JSON.stringify(data));
-                            }
-                        }
-
-                        if (e.includes("Failed to start the minecraft server")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-                        if (e.includes('Exception in thread "main" ')) return ShowPanelError(`${langs.error_detected_two} \nError:\n${e}`);
-
-                        if (e.includes("There is insufficient memory for the Java Runtime Environment to continue.")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-                        if (e.includes("Could not reserve enough space for object heap")) return ShowPanelError(`${langs.error_detected_three} \nError:\n${e}`);
-
-                        if (e.includes("Forge patcher exited with code 1")) {
-                            ShowPanelError(`${langs.error_detected_four} \nError:\n${e}`);
-                            progressBar1.style.display = "none";
-                            info.style.display = "none";
-                            playBtn.style.display = "";
-                        }
-
-                        if (e.includes("Unable to launch")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft Crash Report") && !e.includes("THIS IS NOT A ERROR")) return ShowPanelError(`${langs.error_detected_one} \nError:\n${e}`);
-
-                        if (e.includes("java.lang.ClassCastException")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (e.includes("Minecraft has crashed!")) return ShowPanelError(`${langs.error_detected_five} \nError:\n${e}`);
-
-                        if (
-                            e.includes(`Setting user: ${account.name}`) ||
-                            e.includes("Launching wrapped minecraft")
-                        ) {
-                            if (inicio == false) {
-                                let typeOfVersion;
-                                if (version.endsWith("-forge")) {
-                                    typeOfVersion = "Forge";
-                                } else if (version.endsWith("-fabric")) {
-                                    typeOfVersion = "Fabric";
-                                } else if (version.endsWith("-quilt")) {
-                                    typeOfVersion = "Quilt";
-                                } else {
-                                    typeOfVersion = "";
-                                }
-                                ipcRenderer.send(
-                                    "new-status-discord-jugando",
-                                    `${langs.playing_in} ${version
-                                        .replace("-forge", "")
-                                        .replace("-fabric", "")
-                                        .replace("-quilt", "")} ${typeOfVersion}`
-                                );
-
-                                
-
-                                this.UpdateStatus(account.name, 'ausente', `${langs.playing_in} ${version_real.replace("-forge", "").replace("-fabric", "").replace("-quilt", "")} ${typeOfVersion}`);
-                                modalDiv1.remove();
-                                inicio = true;
-                                info.innerHTML = `${langs.minecraft_started_correctly}.`;
-                                ipcRenderer.send("new-notification", {
-                                    title: langs.minecraft_started_correctly,
-                                    body: langs.minecraft_started_correctly_body,
-                                });
-
-                                ipcRenderer.send("main-window-progress-reset");
-                            }
-                        }
-
-                        if (e.includes("Connecting to")) {
-                            let msj = e.split("Connecting to ")[1].split("...")[0];
-                            info.innerHTML = `Conectando a ${msj}`;
-                        }
-                    });
-
-                    launch_core.on("close", (code) => {
-                        consoleOutput_ += `---------- [MC] Código de salida: ${code}\n ----------`;
-                        modalDiv1.remove();
-                        if (launcherSettings.launcher.close === "close-launcher")
-                            ipcRenderer.send("main-window-show");
-
-                        ipcRenderer.send('updateStatus', {
-                            status: 'online',
-                            details: langs.in_the_menu,
-                            username: account.name,
-                        })
-                        progressBar1.style.display = "none";
-                        info.style.display = "none";
-                        playBtn.style.display = "";
-                        info.innerHTML = `Verificando archivos...`;
-                        new logger("Launcher", "#3e8ed0");
-                        console.log("🔧 Minecraft cerrado");
-
-                        progressBar1.style.display = "none";
-                        ipcRenderer.send("delete-and-new-status-discord");
-
-                        version = null;
-                        versionType = null;
-                        versionData = null;
-                        version_real = null;
-                        assets = null;
-                        type = null;
-                        isForgeCheckBox = false;
-                        isFabricCheckBox = false;
-                        isQuiltCheckBox = false;
-                        document.getElementById("radioVanilla").removeAttribute("checked");
-                        document.getElementById("radioForge").removeAttribute("checked");
-                        document.getElementById("radioFabric").removeAttribute("checked");
-                        document.getElementById("radioQuilt").removeAttribute("checked");
-
-                    });
-
-                    launch_core.on("error", (err) => {
-                        consoleOutput_ += `[ERROR] ${JSON.stringify(err, null, 2)}\n`;
-                    });
-                });
-            });
+        }
+
+        LoadNews();
+
+        document.getElementById("typeOfNews").addEventListener("change", (e) => {
+            let type = e.target.value;
+            news.innerHTML = "";
+            if (type === "battly") {
+                LoadNews();
+            } else {
+                LoadMinecraftNews();
+            }
+        });
     }
 
     async initStatusServer() {
-        let APIServerData = document.getElementById("Battly_API_Desc");
-        let WEBServerData = document.getElementById("Battly_WEB_Desc");
-        let APIServerStatus = document.getElementById("Battly_API_Estado");
-        let WEBServerStatus = document.getElementById("Battly_WEB_Estado");
-        let miembrosEnLinea = document.getElementById("Miembros_Online");
+        const APIServerData = document.getElementById("Battly_API_Desc");
+        const WEBServerData = document.getElementById("Battly_WEB_Desc");
+        const APIServerStatus = document.getElementById("Battly_API_Estado");
+        const WEBServerStatus = document.getElementById("Battly_WEB_Estado");
+        const miembrosEnLinea = document.getElementById("Miembros_Online");
 
-        let APIServer = "https://api.battlylauncher.com";
-        let WEBServer = "https://battlylauncher.com";
-        let APIMembers = `${APIServer}/battlylauncher/usuarios_online`;
+        const APIServer = "https://api.battlylauncher.com";
+        const WEBServer = "https://battlylauncher.com";
+        const APIMembers = `${APIServer}/battlylauncher/usuarios_online`;
 
-        const https = require("https");
-        const httpsAgent = new https.Agent({
-            rejectUnauthorized: false,
-        });
+        async function fetchWithTimeout(url, options = {}, timeout = 15000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { ...options, signal: controller.signal, cache: "no-store" });
+                return response;
+            } finally {
+                clearTimeout(id);
+            }
+        }
 
-        const axios = require("axios");
-        await axios
-            .get(APIServer, {
-                httpsAgent,
-            })
-            .then((res) => {
-                if (res.status === 200) {
-                    APIServerData.innerHTML = `<span class="green">${langs.operative}</span>`;
-                    APIServerStatus.className = "online";
-                } else {
-                    APIServerData.innerHTML = `<span class="red">${langs.no_connected}</span>`;
-                    APIServerStatus.className = "online off";
-                }
-            })
-            .catch((err) => {
-                APIServerData.innerHTML = `<span class="red">${langs.no_connected}</span>`;
-                APIServerStatus.className = "online off";
-            });
+        async function checkStatus(url) {
+            try {
+                const res = await fetchWithTimeout(url);
+                return res.ok;
+            } catch {
+                return false;
+            }
+        }
 
-        await axios
-            .get(WEBServer, {
-                httpsAgent,
-            })
-            .then((res) => {
-                if (res.status === 200) {
-                    WEBServerData.innerHTML = `<span class="green">${langs.operative}</span>`;
-                    WEBServerStatus.className = "online";
-                } else {
-                    WEBServerData.innerHTML = `<span class="red">${langs.no_connected}</span>`;
-                    WEBServerStatus.className = "online off";
-                }
-            })
-            .catch((err) => {
-                WEBServerData.innerHTML = `<span class="red">${langs.no_connected}</span>`;
-                WEBServerStatus.className = "online off";
-            });
+        async function getJson(url) {
+            try {
+                const res = await fetchWithTimeout(url);
+                return res.ok ? await res.json() : null;
+            } catch {
+                return null;
+            }
+        }
 
-        await axios
-            .get(APIMembers, {
-                httpsAgent,
-            })
-            .then((res) => {
-                if (res.status === 200) {
-                    miembrosEnLinea.innerHTML = `${res.data.usuarios} ${langs.users_online}`
-                }
-            })
-            .catch((err) => {
-                miembrosEnLinea.innerHTML = "0";
-            });
+        const [apiOk, webOk, membersData] = await Promise.all([
+            checkStatus(APIServer),
+            checkStatus(WEBServer),
+            getJson(APIMembers),
+        ]);
+
+        APIServerData.innerHTML = apiOk
+            ? `<span class="green">${await window.getString('home.operative') || 'Operativo'}</span>`
+            : `<span class="red">${await window.getString('home.notConnected') || 'No operativo - No conectado'}</span>`;
+
+        WEBServerData.innerHTML = webOk
+            ? `<span class="green">${await window.getString('home.operative') || 'Operativo'}</span>`
+            : `<span class="red">${await window.getString('home.notConnected') || 'No operativo - No conectado'}</span>`;
+
+        const usuarios = Number(membersData?.usuarios);
+        miembrosEnLinea.textContent = Number.isFinite(usuarios) && usuarios >= 0
+            ? `${usuarios} ${await window.getString('home.usersOnline') || 'usuarios online'}`
+            : "0";
+
+        if (APIServerStatus) APIServerStatus.textContent = apiOk ? "OK" : "DOWN";
+        if (WEBServerStatus) WEBServerStatus.textContent = webOk ? "OK" : "DOWN";
     }
+
 
     initBtn() {
         document.getElementById("settings-btn").addEventListener("click", () => {
             changePanel("settings");
+        });
+
+        document.getElementById("download-btn").addEventListener("click", () => {
+            new Download().HandleDownloadPanel();
         });
     }
 
@@ -7562,18 +3164,18 @@ class Home {
         let month = date.getMonth() + 1;
         let day = date.getDate();
         let allMonth = [
-            langs.january,
-            langs.february,
-            langs.march,
-            langs.april,
-            langs.may,
-            langs.june,
-            langs.july,
-            langs.august,
-            langs.september,
-            langs.october,
-            langs.november,
-            langs.december,
+            await window.getString('months.january') || 'Enero',
+            await window.getString('months.february') || 'Febrero',
+            await window.getString('months.march') || 'Marzo',
+            await window.getString('months.april') || 'Abril',
+            await window.getString('months.may') || 'Mayo',
+            await window.getString('months.june') || 'Junio',
+            await window.getString('months.july') || 'Julio',
+            await window.getString('months.august') || 'Agosto',
+            await window.getString('months.september') || 'Septiembre',
+            await window.getString('months.october') || 'Octubre',
+            await window.getString('months.november') || 'Noviembre',
+            await window.getString('months.december') || 'Diciembre',
         ];
         return {
             year: year,
